@@ -1,17 +1,5 @@
 import mongoose from "mongoose";
-
-const itemSchema = new mongoose.Schema({
-  objectId: {type: mongoose.Schema.Types.ObjectId},
-  name: {type: String, required: true},
-  hsn: {type: String},
-  barcode: {type: String},
-  quantity: {type: Number, required: true},
-  measuringUnit: {type: String, enum: ["gram", "kilogram", "litre", "millilitre", "piece"]},
-  purchasePrice: {type: Number},
-  discount: {type: Number},
-  gst: {type: Number},
-  totalAmount: {type: Number}
-});
+import itemSchema from "./itemSchema";
 
 const purchaseReturn = new mongoose.Schema({
   party: {type: mongoose.Schema.Types.ObjectId, ref: "Party", required: true},
