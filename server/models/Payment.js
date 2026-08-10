@@ -6,6 +6,7 @@ const payment_Schema = new mongoose.Schema({
   date: {type: Date, default: Date.now},
   party: {type: mongoose.Schema.Types.ObjectId, ref: "Party"},
   invoice: {type: mongoose.Schema.Types.ObjectId, ref: "Purchase"},
+  storeId: {type: mongoose.Schema.Types.ObjectId, ref: "Store", required: true},
   payments: [paymentSchema],
   amount: {type: Number, required: true},
   notes: {type: String}, 

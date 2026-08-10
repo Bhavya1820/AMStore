@@ -8,6 +8,7 @@ const saleInvoice = new mongoose.Schema({
   invoiceNumber: {type: String, required: true},
   invoiceDate: {type: Date, required: true},
   userId: {type: mongoose.Schema.Types.ObjectId, ref: "User"},
+  storeId: {type: mongoose.Schema.Types.ObjectId, ref: "Store", required: true},
   items: [itemSchema],
   taxableAmount: {type: Number},
   sgst: {type: Number},

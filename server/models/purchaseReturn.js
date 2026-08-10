@@ -4,6 +4,7 @@ import itemSchema from "./itemSchema";
 const purchaseReturn = new mongoose.Schema({
   party: {type: mongoose.Schema.Types.ObjectId, ref: "Party", required: true},
   invoiceId: {type: mongoose.Schema.Types.ObjectId, ref: "Purchase"},
+  storeId: {type: mongoose.Schema.Types.ObjectId, ref: "Store", required: true},
   purchaseReturnNumber: {type: String, required: true},
   purchaseReturnDate: {type: Date, required: true},
   items: [itemSchema],

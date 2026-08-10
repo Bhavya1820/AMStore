@@ -19,7 +19,8 @@ const cashSessionSchema = new mongoose.Schema({
   paymentBreakdown: {type: methodTotalSchema, default: () => {}},
   startTime: {type: Date, default: Date.now},
   endTime: {type: Date},
-  isActive: {type: Boolean, default: true}
+  isActive: {type: Boolean, default: true},
+  storeId: {type: mongoose.Schema.Types.ObjectId, ref: "Store", required: true},
 }, {timestamps: true});
 
 const CashSession = mongoose.model("CashSession", cashSessionSchema);

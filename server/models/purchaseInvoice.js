@@ -5,6 +5,7 @@ import itemSchema from "./itemSchema";
 const purchaseInvoice = new mongoose.Schema({
   party: {type: mongoose.Schema.Types.ObjectId, ref: "Party", required: true},
   userId: {type: mongoose.Schema.Types.ObjectId, ref: "User"},
+  storeId: {type: mongoose.Schema.Types.ObjectId, ref: "Store", required: true},
   invoiceNumber: {type: Number, required: true},
   invoiceDate: {type: Date, required: true},
   items: [itemSchema],

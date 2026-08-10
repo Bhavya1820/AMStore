@@ -13,6 +13,7 @@ const ledgerSchema = new mongoose.Schema({
   item: {type: mongoose.Schema.Types.ObjectId, ref: "Item"},
   invoiceId: {type: mongoose.Schema.Types.ObjectId},
   userId: {type: mongoose.Schema.Types.ObjectId, ref: "User"},
+  storeId: {type: mongoose.Schema.Types.ObjectId, ref: "Store", required: true},
   quantity: {type: Number},
   measuringUnit: {
     type: String,

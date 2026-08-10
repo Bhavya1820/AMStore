@@ -20,6 +20,7 @@ const itemSchema = new mongoose.Schema({
   lowStock: {type: Number, default: 0},
   barcode: {type: String, required: true},
   hsn: {type: String, required: true},
+  storeId: {type: mongoose.Schema.Types.ObjectId, ref: "Store", required: true},
 }, {timestamps: true});
 
 const Item = mongoose.model("Item", itemSchema);

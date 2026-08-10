@@ -6,6 +6,7 @@ const salesReturn = new mongoose.Schema({
   customerPhoneNumber: {type: String},
   salesReturnNumber: {type: String, required: true},
   salesReturnDate: {type: Date, required: true},
+  storeId: {type: mongoose.Schema.Types.ObjectId, ref: "Store", required: true},
   items: [itemSchema],
   taxableAmount: {type: Number},
   sgst: {type: Number},

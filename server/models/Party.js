@@ -6,7 +6,8 @@ const partySchema = new mongoose.Schema({
   email: {type: String},
   gstIn: {type: String},
   Address: {type: String},
-  balance: {type: Number, default: 0}
+  balance: {type: Number, default: 0},
+  storeId: {type: mongoose.Schema.Types.ObjectId, ref: "Store", required: true},
 }, {timestamps: true});
 
 const Party = mongoose.model("Party", partySchema);
