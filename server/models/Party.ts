@@ -1,6 +1,16 @@
 import mongoose from "mongoose";
 
-const partySchema = new mongoose.Schema({
+interface IParty {
+  name: string;
+  mobileNumber?: string;
+  email?: string;
+  gstIn?: string;
+  Address?: string;
+  balance?: number;
+  storeId: mongoose.Types.ObjectId;
+}
+
+const partySchema = new mongoose.Schema<IParty>({
   name: {type: String, required: true},
   mobileNumber: {type: String},
   email: {type: String},
@@ -10,5 +20,5 @@ const partySchema = new mongoose.Schema({
   storeId: {type: mongoose.Schema.Types.ObjectId, ref: "Store", required: true},
 }, {timestamps: true});
 
-const Party = mongoose.model("Party", partySchema);
+const Party = mongoose.model<IParty>("Party", partySchema);
 export default Party;

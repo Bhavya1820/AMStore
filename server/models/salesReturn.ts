@@ -1,7 +1,24 @@
 import mongoose from "mongoose"
-import itemSchema from "./itemSchema";
+import {itemSchema, IItem} from "./itemSchema";
+import {PaymentMethod} from "./Common";
 
-const salesReturn = new mongoose.Schema({
+interface ISalesReturn {
+  customerName?: string;
+  customerPhoneNumber?: string;
+  salesReturnNumber: string;
+  salesReturnDate: Date;
+  storeId: mongoose.Types.ObjectId;
+  items: IItem;
+  taxableAmount: number;
+  sgst: number;
+  cgst: number;
+  totalAmount: number;
+  amountPaid: number;
+  paymentMethod: PaymentMethod;
+  balanceAmount: number;
+}
+
+const salesReturn = new mongoose.Schema<ISalesReturn>({
   customerName: {type: String},
   customerPhoneNumber: {type: String},
   salesReturnNumber: {type: String, required: true},
@@ -17,6 +34,6 @@ const salesReturn = new mongoose.Schema({
   balanceAmount: {type: Number},
 }, {timestamps: true});
 
-const SalesReturn = mongoose.model("SalesReturn", salesReturn);
+const SalesReturn = mongoose.model<ISalesReturn>("SalesReturn", salesReturn);
 export default SalesReturn;
 

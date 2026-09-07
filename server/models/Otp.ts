@@ -1,6 +1,14 @@
 import mongoose from "mongoose";
 
-const otpSchema = new mongoose.Schema({
+interface IOtp {
+  email: string;
+  otpHash: string;
+  purpose: "registration" | "login" | "forgotPassword";
+  expireAt: Date;
+  attempts: number;
+}
+
+const otpSchema = new mongoose.Schema<IOtp>({
  email: {type: String, required: true, lowercase: true, trim: true, index: true},
  otpHash: {type: String, required: true},
  purpose: {type: String, enum: ['registration', 'login', 'forgotPassword']},
@@ -13,5 +21,5 @@ otpSchema.index(
   {expireAfterSeconds: 0},
 )
 
-const Otp = mongoose.model("Otp", otpSchema);
+const Otp = mongoose.model<IOtp>("Otp", otpSchema);
 export default Otp;

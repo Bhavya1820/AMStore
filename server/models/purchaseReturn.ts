@@ -1,7 +1,24 @@
 import mongoose from "mongoose";
-import itemSchema from "./itemSchema";
+import {itemSchema, IItem} from "./itemSchema";
+import {PaymentMethod} from "./Common"
 
-const purchaseReturn = new mongoose.Schema({
+interface IPurchaseReturn {
+  party: mongoose.Types.ObjectId;
+  invoiceId: mongoose.Types.ObjectId;
+  storeId: mongoose.Types.ObjectId;
+  purchaseReturnNumber: string;
+  purchaseReturnDate: Date;
+  items: IItem;
+  taxableAmount: number;
+  sgst: number;
+  cgst: number;
+  totalAmount: number;
+  amountRecieved: number;
+  paymentMethod: PaymentMethod;
+  balanceAmount: number;
+}
+
+const purchaseReturn = new mongoose.Schema<IPurchaseReturn>({
   party: {type: mongoose.Schema.Types.ObjectId, ref: "Party", required: true},
   invoiceId: {type: mongoose.Schema.Types.ObjectId, ref: "Purchase"},
   storeId: {type: mongoose.Schema.Types.ObjectId, ref: "Store", required: true},
@@ -17,5 +34,5 @@ const purchaseReturn = new mongoose.Schema({
   balanceAmount:{type: Number}
 }, {timestamps: true});
 
-const PurchaseReturn = mongoose.model("PurchaseReturn", purchaseReturn);
+const PurchaseReturn = mongoose.model<IPurchaseReturn>("PurchaseReturn", purchaseReturn);
 export default PurchaseReturn;

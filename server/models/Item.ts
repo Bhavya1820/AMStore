@@ -1,6 +1,23 @@
 import mongoose from "mongoose"
+import {MeasuringUnit} from "./Common";
 
-const itemSchema = new mongoose.Schema({
+interface IItem {
+  name: string;
+  category: mongoose.Types.ObjectId;
+  salePrice: number;
+  salePriceWithTax: boolean;
+  purchasePrice: number;
+  purchasePriceWithTax: boolean;
+  gst: number;
+  measuringUnit: MeasuringUnit;
+  currentStock: number;
+  lowStock: number;
+  barcode: string;
+  hsn: string;
+  storeId: mongoose.Types.ObjectId;
+}
+
+const itemSchema = new mongoose.Schema<IItem>({
   name: {type: String, required: true},
   category: {
     type: mongoose.Schema.Types.ObjectId,
@@ -23,5 +40,5 @@ const itemSchema = new mongoose.Schema({
   storeId: {type: mongoose.Schema.Types.ObjectId, ref: "Store", required: true},
 }, {timestamps: true});
 
-const Item = mongoose.model("Item", itemSchema);
+const Item = mongoose.model<IItem>("Item", itemSchema);
 export default Item;

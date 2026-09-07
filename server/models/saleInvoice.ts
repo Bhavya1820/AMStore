@@ -1,8 +1,25 @@
 import mongoose from "mongoose"
-import paymentSchema from "./paymentSchema";
-import itemSchema from "./itemSchema";
+import {paymentSchema, IPayment} from "./paymentSchema";
+import {itemSchema, IItem} from "./itemSchema";
 
-const saleInvoice = new mongoose.Schema({
+interface ISale {
+  customerName?: string;
+  customerPhoneNumber?: string;
+  invoiceNumber: string;
+  invoiceDate: Date;
+  userId?: mongoose.Types.ObjectId;
+  storeId: mongoose.Types.ObjectId;
+  items: IItem;
+  taxableAmount: number;
+  sgst: number;
+  cgst: number;
+  totalAmount: number;
+  amountReceived: number;
+  payments: IPayment;
+  cancelled: boolean;
+}
+
+const saleInvoice = new mongoose.Schema<ISale>({
   customerName: {type: String},
   customerPhoneNumber: {type: String},
   invoiceNumber: {type: String, required: true},
@@ -19,5 +36,5 @@ const saleInvoice = new mongoose.Schema({
   cancelled: {type: Boolean, default: false}
 }, {timestamps: true});
 
-const Sale = mongoose.model("Sale", saleInvoice);
+const Sale = mongoose.model<ISale>("Sale", saleInvoice);
 export default Sale;
