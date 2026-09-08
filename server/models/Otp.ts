@@ -9,16 +9,20 @@ interface IOtp {
 }
 
 const otpSchema = new mongoose.Schema<IOtp>({
- email: {type: String, required: true, lowercase: true, trim: true, index: true},
- otpHash: {type: String, required: true},
- purpose: {type: String, enum: ['registration', 'login', 'forgotPassword']},
- expireAt: {type: Date, required: true},
- attempts: {type: Number, default: 0}, 
-}, {timestamps: true});
+  email: { type: String, required: true, lowercase: true, trim: true, index: true },
+  otpHash: { type: String, required: true },
+  purpose: { type: String, enum: ['registration', 'login', 'forgotPassword'], required: true },
+  expireAt: { type: Date, required: true },
+  attempts: { type: Number, default: 0 },
+}, { timestamps: true });
 
 otpSchema.index(
-  {expireAt: 1},
-  {expireAfterSeconds: 0},
+  { expireAt: 1 },
+  { expireAfterSeconds: 0 },
+)
+
+otpSchema.index(
+  { email: 1, purpose: 1 }
 )
 
 const Otp = mongoose.model<IOtp>("Otp", otpSchema);

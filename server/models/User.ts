@@ -6,27 +6,32 @@ interface IUser {
   userId?: string;
   email?: string;
   password: string;
-  role?: "admin" | "purchase" | "sales";
+  role: "admin" | "purchase" | "sales";
   storeId: mongoose.Types.ObjectId;
 }
 
 interface IUserMethods {
-  comparePassword(password: string): Promise<boolean>; 
+  comparePassword(password: string): Promise<boolean>;
 }
 
 type UserModel = mongoose.Model<IUser, {}, IUserMethods>;
 
 const userSchema = new mongoose.Schema<IUser, UserModel>({
-  userName: {type: String, required: true},
-  userId: {type: String, unique: true},
-  email: {type: String, unique: true, lowercase: true, trim: true},
-  password: {type: String, required: true},
-  role: {type: String, enum:["admin", "purchase", "sales"]},
-  storeId: {type: mongoose.Schema.Types.ObjectId, ref:"Store", required: true},
-}, {timestamps: true});
+  userName: { type: String, required: true },
+  userId: { type: String, unique: true },
+  email: { type: String, unique: true, lowercase: true, trim: true },
+  password: { type: String, required: true },
+  role: { type: String, enum: ["admin", "purchase", "sales"], required: true},
+  storeId: { type: mongoose.Schema.Types.ObjectId, ref: "Store", required: true },
+}, { timestamps: true });
+
+userSchema.index(
+  { storeId: 1, userName: 1 },
+  { unique: true }
+);
 
 userSchema.pre("save", async function () {
-  if(!this.isModified("password") || !this.password){
+  if (!this.isModified("password") || !this.password) {
     return;
   }
 
@@ -35,7 +40,7 @@ userSchema.pre("save", async function () {
 });
 
 userSchema.methods.comparePassword = async function (password: string): Promise<boolean> {
-  if(!this.password) return false;
+  if (!this.password) return false;
   return bcrypt.compare(password, this.password);
 }
 
