@@ -7,7 +7,7 @@ export interface IRole extends Document {
 
   name: RoleName;
 
-  permissions: string[];
+  permissions: mongoose.Types.ObjectId[];
 
   isSystemRole: boolean;
 
@@ -29,10 +29,12 @@ const roleSchema = new mongoose.Schema<IRole>(
        required: true,
        trim: true,
     },
-    permissions: {
-      type: [String],
-      default: []
-    },
+    permissions: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Permission",
+      }
+    ],
     isSystemRole: {
       type: Boolean,
       default: false,
