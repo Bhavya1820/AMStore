@@ -1,13 +1,17 @@
 import mongoose from "mongoose";
 import bcrypt from "bcryptjs"
 
-interface IUser {
+export interface IUser {
+  tenantId: mongoose.Types.ObjectId;
+  storeId: mongoose.Types.ObjectId;
+  roleId: mongoose.Types.ObjectId;
+
   userName: string;
   userId?: string;
   email?: string;
   password: string;
-  role: "admin" | "purchase" | "sales";
-  storeId: mongoose.Types.ObjectId;
+
+  isActive: boolean;
 }
 
 interface IUserMethods {
@@ -17,18 +21,62 @@ interface IUserMethods {
 type UserModel = mongoose.Model<IUser, {}, IUserMethods>;
 
 const userSchema = new mongoose.Schema<IUser, UserModel>({
-  userName: { type: String, required: true },
-  userId: { type: String, unique: true },
-  email: { type: String, unique: true, lowercase: true, trim: true },
-  password: { type: String, required: true },
-  role: { type: String, enum: ["admin", "purchase", "sales"], required: true},
-  storeId: { type: mongoose.Schema.Types.ObjectId, ref: "Store", required: true },
+  tenantId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Tenant",
+    required: true,
+    index: true,
+  },
+  storeId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Store",
+    required: true,
+    index: true,
+  },
+  roleId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Role",
+    required: true,
+  },
+  userName: {
+    type: String,
+    required: true,
+    trim: true,
+  },
+  userId: {
+    type: String,
+    trim: true,
+  },
+  email: {
+    type: String,
+    unique: true,
+    lowercase: true,
+    trim: true
+  },
+  password: {
+    type: String,
+    required: true
+  },
+  isActive: {
+    type: Boolean,
+    default: true,
+  }
 }, { timestamps: true });
 
 userSchema.index(
-  { storeId: 1, userName: 1 },
+  { tenantId: 1, storeId: 1, userName: 1 },
   { unique: true }
 );
+
+userSchema.index(
+  {tenantId: 1, email: 1},
+  {unique: true, sparse: true},
+)
+
+userSchema.index(
+  {tenantId: 1, storeId: 1, userId: 1},
+  {unique: true, sparse: true},
+)
 
 userSchema.pre("save", async function () {
   if (!this.isModified("password") || !this.password) {
