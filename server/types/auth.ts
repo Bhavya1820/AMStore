@@ -1,3 +1,5 @@
+export type Role = "owner" | "admin" | "purchase" | "sales";
+
 export interface RegistrationTokenPayload{
   email: string;
   purpose: "registration";
@@ -5,6 +7,8 @@ export interface RegistrationTokenPayload{
 
 export interface AccessTokenPayload{
   userId: string;
-  storeId: string;
-  role: "admin" | "purchase" | "sales";
+  tenantId: string;
+  // Empty array = access to all stores in the tenant
+  storeIds: string[];
+  role: Role;
 }

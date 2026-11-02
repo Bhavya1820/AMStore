@@ -23,7 +23,7 @@ const tenantSchema = new mongoose.Schema<ITenant>({
     required: true,
     lowercase: true,
     trim: true,
-    index: true
+    unique: true
   },
   status: {
     type: String,
@@ -38,4 +38,3 @@ const tenantSchema = new mongoose.Schema<ITenant>({
 
 const Tenant = mongoose.model<ITenant>("Tenant", tenantSchema);
 export default Tenant;
-

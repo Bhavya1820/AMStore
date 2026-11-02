@@ -1,6 +1,7 @@
 import mongoose, {Document} from "mongoose";
 
-export type RoleName = "admin" | "sales" | "purchase";
+export const ROLE_NAMES = ["owner", "admin", "sales", "purchase"] as const;
+export type RoleName = typeof ROLE_NAMES[number];
 
 export interface IRole extends Document {
   tenantId: mongoose.Types.ObjectId;
@@ -25,7 +26,7 @@ const roleSchema = new mongoose.Schema<IRole>(
     },
     name: {
        type: String,
-       enum: ["admin", "sales", "purchase"],
+       enum: ROLE_NAMES,
        required: true,
        trim: true,
     },
@@ -47,7 +48,7 @@ const roleSchema = new mongoose.Schema<IRole>(
 
 roleSchema.index(
   {
-    tenant: 1,
+    tenantId: 1,
     name: 1
   },
   {

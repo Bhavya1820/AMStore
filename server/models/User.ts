@@ -3,8 +3,13 @@ import bcrypt from "bcryptjs"
 
 export interface IUser {
   tenantId: mongoose.Types.ObjectId;
-  storeId: mongoose.Types.ObjectId;
+  // Stores this user can access. Empty array = all stores in the tenant (owner / tenant-wide admin).
+  // Sales and purchase staff must have exactly one entry (enforced in the validator below).
+  storeIds: mongoose.Types.ObjectId[];
   roleId: mongoose.Types.ObjectId;
+
+  // True only for the tenant owner (the person who registered). Cannot be edited/deactivated by others.
+  isOwner: boolean;
 
   userName: string;
   userId?: string;
@@ -12,6 +17,8 @@ export interface IUser {
   password: string;
 
   isActive: boolean;
+  lastLoginAt?: Date;
+  passwordChangedAt?: Date;
 }
 
 interface IUserMethods {
@@ -27,16 +34,19 @@ const userSchema = new mongoose.Schema<IUser, UserModel>({
     required: true,
     index: true,
   },
-  storeId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "Store",
-    required: true,
+  storeIds: {
+    type: [{ type: mongoose.Schema.Types.ObjectId, ref: "Store" }],
+    default: [],
     index: true,
   },
   roleId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "Role",
     required: true,
+  },
+  isOwner: {
+    type: Boolean,
+    default: false,
   },
   userName: {
     type: String,
@@ -49,34 +59,44 @@ const userSchema = new mongoose.Schema<IUser, UserModel>({
   },
   email: {
     type: String,
-    unique: true,
     lowercase: true,
     trim: true
   },
   password: {
     type: String,
-    required: true
+    required: true,
+    select: false,
   },
   isActive: {
     type: Boolean,
     default: true,
-  }
+  },
+  lastLoginAt: { type: Date },
+  passwordChangedAt: { type: Date },
 }, { timestamps: true });
 
+// userName is unique within a tenant (staff log in with storeCode + userName)
 userSchema.index(
-  { tenantId: 1, storeId: 1, userName: 1 },
+  { tenantId: 1, userName: 1 },
   { unique: true }
 );
 
+// Partial indexes: sparse does not skip null/missing consistently, so only index real strings
 userSchema.index(
-  {tenantId: 1, email: 1},
-  {unique: true, sparse: true},
-)
+  { tenantId: 1, email: 1 },
+  { unique: true, partialFilterExpression: { email: { $type: "string" } } },
+);
 
 userSchema.index(
-  {tenantId: 1, storeId: 1, userId: 1},
-  {unique: true, sparse: true},
-)
+  { tenantId: 1, userId: 1 },
+  { unique: true, partialFilterExpression: { userId: { $type: "string" } } },
+);
+
+// Only one owner per tenant
+userSchema.index(
+  { tenantId: 1, isOwner: 1 },
+  { unique: true, partialFilterExpression: { isOwner: true } },
+);
 
 userSchema.pre("save", async function () {
   if (!this.isModified("password") || !this.password) {
@@ -85,6 +105,9 @@ userSchema.pre("save", async function () {
 
   const salt = await bcrypt.genSalt(10);
   this.password = await bcrypt.hash(this.password, salt);
+  if (!this.isNew) {
+    this.passwordChangedAt = new Date();
+  }
 });
 
 userSchema.methods.comparePassword = async function (password: string): Promise<boolean> {

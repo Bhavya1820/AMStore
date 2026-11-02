@@ -1,4 +1,4 @@
-import express, {Request, Response} from "express"
+﻿import express, {Request, Response} from "express"
 import cookieParser from "cookie-parser"
 import dotenv from "dotenv"
 import cors from "cors"
@@ -28,7 +28,7 @@ if(!mongoUri){
 }
 mongoose
   .connect(mongoUri)
-  .then(() => console.log(`✅ MongoDB connected to: ${process.env.MONGO_URI}`))
+  .then(() => console.log("MongoDB connected"))
   .catch((err) => console.log("❌ MongoDB connection error:", err))
 
 
@@ -37,3 +37,4 @@ mongoose
 app.listen(process.env.PORT, () => {
   console.log(`🚀 Server running on http://localhost:${process.env.PORT}`)
 })
+
