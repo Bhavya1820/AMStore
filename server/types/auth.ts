@@ -12,3 +12,16 @@ export interface AccessTokenPayload{
   storeIds: string[];
   role: Role;
 }
+
+// Built by the authenticate middleware from the database on every request,
+// so deactivation and permission changes take effect immediately.
+export interface AuthContext {
+  userId: string;
+  tenantId: string;
+  role: Role;
+  isOwner: boolean;
+  // Empty array = all stores (owner only)
+  storeIds: string[];
+  permissions: Set<string>;
+  mustChangePassword: boolean;
+}

@@ -5,7 +5,9 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": ""
+    "start": "tsx app.ts",
+    "dev": "nodemon --watch . --ext ts --ignore node_modules --exec tsx app.ts",
+    "typecheck": "tsc --noEmit -p ."
   },
   "keywords": [],
   "author": "",
@@ -16,10 +18,12 @@
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
+    "express-rate-limit": "^8.7.2",
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.9.5",
     "nodemailer": "^9.1.1",
-    "nodemon": "^3.1.14"
+    "nodemon": "^3.1.14",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@types/cookie-parser": "^1.4.10",

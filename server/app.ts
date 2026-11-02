@@ -1,14 +1,25 @@
-﻿import express, {Request, Response} from "express"
+import express, {Request, Response} from "express"
 import cookieParser from "cookie-parser"
 import dotenv from "dotenv"
 import cors from "cors"
 import mongoose from "mongoose"
-import authRoutes from "./routes/auth.routes"
 
 dotenv.config();
+
+import authRoutes from "./routes/auth.routes"
+import userRoutes from "./routes/user.routes"
+import { errorHandler, notFoundHandler } from "./middleware/errorHandler"
+import { seedPermissions } from "./services/permission.service"
+
 const app = express();
-app.use(cors());
-app.use(express.json());
+
+// Cookies (refresh token) require an explicit origin list: CLIENT_ORIGIN=http://localhost:5173,https://app.example.com
+const allowedOrigins = process.env.CLIENT_ORIGIN?.split(",").map((o) => o.trim()).filter(Boolean);
+app.use(cors({
+  origin: allowedOrigins?.length ? allowedOrigins : process.env.NODE_ENV !== "production",
+  credentials: true,
+}));
+app.use(express.json({ limit: "100kb" }));
 app.use(cookieParser());
 
 app.get("/", (req: Request, res:Response) => {
@@ -18,7 +29,10 @@ app.get("/", (req: Request, res:Response) => {
 
 //Routes
 app.use("/api/auth", authRoutes);
+app.use("/api/users", userRoutes);
 
+app.use(notFoundHandler);
+app.use(errorHandler);
 
 
 //mongo connection
@@ -26,15 +40,20 @@ const mongoUri = process.env.MONGO_URI;
 if(!mongoUri){
   throw new Error("MONGO_URI is not defined")
 }
-mongoose
-  .connect(mongoUri)
-  .then(() => console.log("MongoDB connected"))
-  .catch((err) => console.log("❌ MongoDB connection error:", err))
 
+async function start() {
+  await mongoose.connect(mongoUri as string);
+  console.log("MongoDB connected");
 
- 
-//App listening  
-app.listen(process.env.PORT, () => {
-  console.log(`🚀 Server running on http://localhost:${process.env.PORT}`)
-})
+  await seedPermissions();
 
+  //App listening
+  app.listen(process.env.PORT, () => {
+    console.log(`Server running on http://localhost:${process.env.PORT}`)
+  })
+}
+
+start().catch((err) => {
+  console.error("Failed to start server:", err);
+  process.exit(1);
+});

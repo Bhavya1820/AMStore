@@ -6,6 +6,7 @@ interface IOtp {
   purpose: "registration" | "login" | "forgotPassword";
   expireAt: Date;
   attempts: number;
+  createdAt?: Date;
 }
 
 const otpSchema = new mongoose.Schema<IOtp>({

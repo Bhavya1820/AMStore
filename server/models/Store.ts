@@ -6,6 +6,9 @@ interface IStore extends Document {
   name: string;
   email: string;
   storeCode: string;
+  phone?: string;
+  address?: string;
+  gstIn?: string;
 
   isActive: boolean;
 
@@ -18,6 +21,9 @@ const storeSchema = new mongoose.Schema<IStore>({
   name: {type: String, required: true, trim: true},
   email: {type: String, required: true, lowercase: true, trim: true},
   storeCode: {type: String, required: true, unique: true, uppercase: true, trim: true},
+  phone: {type: String, trim: true},
+  address: {type: String, trim: true},
+  gstIn: {type: String, uppercase: true, trim: true},
   isActive: {type: Boolean, default: true}
 }, {timestamps: true});
 

@@ -3,8 +3,8 @@ import bcrypt from "bcryptjs"
 
 export interface IUser {
   tenantId: mongoose.Types.ObjectId;
-  // Stores this user can access. Empty array = all stores in the tenant (owner / tenant-wide admin).
-  // Sales and purchase staff must have exactly one entry (enforced in the validator below).
+  // Stores this user can access. Empty array = all stores in the tenant (owner only).
+  // Sales and purchase staff have exactly one entry; facility admins have one or more.
   storeIds: mongoose.Types.ObjectId[];
   roleId: mongoose.Types.ObjectId;
 
@@ -16,9 +16,21 @@ export interface IUser {
   email?: string;
   password: string;
 
+  // Set when an admin creates the account or resets the password; user must choose a new one on next login
+  mustChangePassword: boolean;
+
+  // Per-user feature access on top of the role's defaults (permission keys, e.g. "sale:create")
+  grantedPermissions: string[];
+  revokedPermissions: string[];
+
   isActive: boolean;
+  createdBy?: mongoose.Types.ObjectId;
   lastLoginAt?: Date;
   passwordChangedAt?: Date;
+
+  // Brute-force protection
+  failedLoginCount: number;
+  lockUntil?: Date;
 }
 
 interface IUserMethods {
@@ -67,12 +79,18 @@ const userSchema = new mongoose.Schema<IUser, UserModel>({
     required: true,
     select: false,
   },
+  mustChangePassword: { type: Boolean, default: false },
+  grantedPermissions: { type: [String], default: [] },
+  revokedPermissions: { type: [String], default: [] },
   isActive: {
     type: Boolean,
     default: true,
   },
+  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
   lastLoginAt: { type: Date },
   passwordChangedAt: { type: Date },
+  failedLoginCount: { type: Number, default: 0 },
+  lockUntil: { type: Date },
 }, { timestamps: true });
 
 // userName is unique within a tenant (staff log in with storeCode + userName)
@@ -81,9 +99,10 @@ userSchema.index(
   { unique: true }
 );
 
-// Partial indexes: sparse does not skip null/missing consistently, so only index real strings
+// Email is globally unique because login by email must resolve to exactly one tenant.
+// Partial index: sparse does not skip null/missing consistently, so only index real strings
 userSchema.index(
-  { tenantId: 1, email: 1 },
+  { email: 1 },
   { unique: true, partialFilterExpression: { email: { $type: "string" } } },
 );
 
