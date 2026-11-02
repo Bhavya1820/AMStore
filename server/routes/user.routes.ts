@@ -9,7 +9,7 @@ import {
   setUserPermissions,
 } from "../services/user.service";
 import { authenticate, authorize } from "../middleware/authMiddleware";
-import { DELEGABLE_PERMISSION_KEYS, PERMISSION_CATALOG } from "../config/permissions";
+import { DELEGABLE_PERMISSION_KEYS, PERMISSION_CATALOG, DEFAULT_ROLE_PERMISSIONS } from "../config/permissions";
 import { ROLE_NAMES } from "../models/Role";
 import { emailSchema, nameSchema, objectId, param, passwordSchema } from "../utils/validation";
 
@@ -27,6 +27,7 @@ router.get("/permissions/catalog", authorize("user:view"), (req, res) => {
       ...p,
       grantable: held.has(p.key),
     })),
+    roleDefaults: { sales: DEFAULT_ROLE_PERMISSIONS.sales, purchase: DEFAULT_ROLE_PERMISSIONS.purchase },
   });
 });
 

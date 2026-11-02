@@ -8,6 +8,7 @@ dotenv.config();
 
 import authRoutes from "./routes/auth.routes"
 import userRoutes from "./routes/user.routes"
+import storeRoutes from "./routes/store.routes"
 import { errorHandler, notFoundHandler } from "./middleware/errorHandler"
 import { seedPermissions } from "./services/permission.service"
 
@@ -30,6 +31,7 @@ app.get("/", (req: Request, res:Response) => {
 //Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
+app.use("/api/stores", storeRoutes);
 
 app.use(notFoundHandler);
 app.use(errorHandler);
