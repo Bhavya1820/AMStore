@@ -7,6 +7,7 @@ import Login from './pages/Login'
 import Register from './pages/Register'
 import Dashboard from './pages/Dashboard'
 import Users from './pages/Users'
+import Stores from './pages/Stores'
 import ChangePassword from './pages/ChangePassword'
 
 export default function App() {
@@ -23,6 +24,14 @@ export default function App() {
             <Route element={<ProtectedRoute />}>
               <Route element={<Layout />}>
                 <Route path="/dashboard" element={<Dashboard />} />
+                <Route
+                  path="/facilities"
+                  element={
+                    <RequirePermission permission="store:manage">
+                      <Stores />
+                    </RequirePermission>
+                  }
+                />
                 <Route
                   path="/users"
                   element={

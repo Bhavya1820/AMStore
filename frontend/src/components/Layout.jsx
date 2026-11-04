@@ -2,10 +2,11 @@ import { useEffect, useRef, useState } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { ROLE_LABELS } from '../utils/helpers'
-import { BrandMark, IconDashboard, IconKey, IconLogout, IconMenu, IconUsers } from './Icons'
+import { BrandMark, IconDashboard, IconKey, IconLogout, IconMenu, IconStore, IconUsers } from './Icons'
 
 const TITLES = {
   '/dashboard': 'Dashboard',
+  '/facilities': 'Facilities',
   '/users': 'Users',
   '/change-password': 'Change password',
 }
@@ -28,9 +29,13 @@ export default function Layout() {
     return () => document.removeEventListener('mousedown', close)
   }, [])
 
-  // Sales/purchase staff only get the dashboard; owner & admins also get Users
+  // Navigation items:
+  // - Sales/purchase staff only get the dashboard
+  // - Owner and facility admin get Users (user:view)
+  // - Owner gets Facilities (store:manage)
   const nav = [
     { to: '/dashboard', label: 'Dashboard', icon: <IconDashboard />, show: true },
+    { to: '/facilities', label: 'Facilities', icon: <IconStore />, show: has('store:manage') },
     { to: '/users', label: 'Users', icon: <IconUsers />, show: has('user:view') },
   ].filter((n) => n.show)
 

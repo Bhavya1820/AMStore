@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { api } from '../api/client'
 import { useAuth } from '../context/AuthContext'
-import { IconShield, IconStore, IconUsers } from '../components/Icons'
+import { IconPlus, IconShield, IconStore, IconUsers } from '../components/Icons'
 import { MODULE_LABELS, ROLE_LABELS } from '../utils/helpers'
 
 const greeting = () => {
@@ -108,7 +109,14 @@ export default function Dashboard() {
         </section>
 
         <section className="card" aria-labelledby="stores-title">
-          <h3 id="stores-title">{stores.length > 1 ? 'Your facilities' : 'Your facility'}</h3>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+            <h3 id="stores-title">{stores.length > 1 ? 'Your facilities' : 'Your facility'}</h3>
+            {has('store:manage') && (
+              <Link to="/facilities" className="btn btn-sm btn-ghost" style={{ padding: '4px 10px', fontSize: '0.8rem' }}>
+                <IconPlus size={14} /> Add / View All
+              </Link>
+            )}
+          </div>
           <p className="muted">Share the store code with staff so they can sign in.</p>
           <div style={{ marginTop: 10 }}>
             {stores.map((s) => (

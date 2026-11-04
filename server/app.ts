@@ -1,10 +1,10 @@
+import dotenv from "dotenv"
+dotenv.config();
+
 import express, {Request, Response} from "express"
 import cookieParser from "cookie-parser"
-import dotenv from "dotenv"
 import cors from "cors"
 import mongoose from "mongoose"
-
-dotenv.config();
 
 import authRoutes from "./routes/auth.routes"
 import userRoutes from "./routes/user.routes"
