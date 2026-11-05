@@ -84,6 +84,17 @@ export const authorize = (...permissions: string[]) =>
     next();
   };
 
+// Requires AT LEAST ONE of the listed permissions
+export const authorizeAny = (...permissions: string[]) =>
+  (req: Request, _res: Response, next: NextFunction) => {
+    if (!req.auth) throw new AppError(401, "Not authenticated", "NO_TOKEN");
+    const hasOne = permissions.some((p) => req.auth!.permissions.has(p));
+    if (!hasOne) {
+      throw new AppError(403, "You do not have permission to do this", "FORBIDDEN");
+    }
+    next();
+  };
+
 /**
  * Resolves which store a request acts on (param, query, `x-store-id` header or body)
  * and verifies the tenant owns it and the user may access it.
@@ -94,12 +105,17 @@ export async function requireStoreAccess(req: Request, _res: Response, next: Nex
   if (!auth) throw new AppError(401, "Not authenticated", "NO_TOKEN");
 
   const header = req.headers["x-store-id"];
-  const candidate =
+  let candidate =
     (typeof req.params.storeId === "string" ? req.params.storeId : undefined) ??
     (typeof req.query.storeId === "string" ? req.query.storeId : undefined) ??
     (typeof header === "string" ? header : undefined) ??
     (typeof req.body?.storeId === "string" ? req.body.storeId : undefined) ??
     (auth.storeIds.length === 1 ? auth.storeIds[0] : undefined);
+
+  if (!candidate && auth.storeIds.length === 0) {
+    const firstStore = await Store.findOne({ tenantId: auth.tenantId, isActive: true }).sort({ createdAt: 1 }).select("_id");
+    if (firstStore) candidate = firstStore._id.toString();
+  }
 
   if (!candidate) throw new AppError(400, "storeId is required", "STORE_REQUIRED");
   if (!OBJECT_ID.test(candidate)) throw new AppError(400, "Invalid storeId", "INVALID_STORE");

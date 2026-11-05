@@ -9,6 +9,7 @@ import mongoose from "mongoose"
 import authRoutes from "./routes/auth.routes"
 import userRoutes from "./routes/user.routes"
 import storeRoutes from "./routes/store.routes"
+import inventoryRoutes from "./routes/inventory.routes"
 import { errorHandler, notFoundHandler } from "./middleware/errorHandler"
 import { seedPermissions } from "./services/permission.service"
 
@@ -20,7 +21,7 @@ app.use(cors({
   origin: allowedOrigins?.length ? allowedOrigins : process.env.NODE_ENV !== "production",
   credentials: true,
 }));
-app.use(express.json({ limit: "100kb" }));
+app.use(express.json({ limit: "15mb" }));
 app.use(cookieParser());
 
 app.get("/", (req: Request, res:Response) => {
@@ -32,6 +33,7 @@ app.get("/", (req: Request, res:Response) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/stores", storeRoutes);
+app.use("/api/inventory", inventoryRoutes);
 
 app.use(notFoundHandler);
 app.use(errorHandler);

@@ -61,3 +61,55 @@ export const formatDate = (value) =>
   value
     ? new Date(value).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
     : 'Never'
+
+export const MEASURING_UNITS = ['piece', 'kilogram', 'gram', 'litre', 'millilitre']
+
+export const MEASURING_UNIT_LABELS = {
+  piece: 'Piece (pcs)',
+  kilogram: 'Kilogram (kg)',
+  gram: 'Gram (g)',
+  litre: 'Litre (L)',
+  millilitre: 'Millilitre (ml)',
+}
+
+export const MEASURING_UNIT_SHORT = {
+  piece: 'pcs',
+  kilogram: 'kg',
+  gram: 'g',
+  litre: 'L',
+  millilitre: 'ml',
+}
+
+export const LEDGER_TYPE_LABELS = {
+  add_new_item: 'Opening Stock',
+  stock_adjustment: 'Stock Adjustment',
+  purchase_item: 'Purchase In',
+  sale_item: 'Sale Out',
+  sale_item_return: 'Sales Return',
+  purchase_item_return: 'Purchase Return',
+  cancel_sale_invoice_item: 'Cancelled Sale',
+  sale_invoice: 'Sale Invoice',
+  purchase_invoice: 'Purchase Invoice',
+  sales_return: 'Sales Return',
+  purchase_return: 'Purchase Return',
+  payment_in: 'Payment In',
+  payment_out: 'Payment Out',
+  cancel_sale_invoice: 'Cancelled Invoice',
+}
+
+export const formatCurrency = (val) =>
+  new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency: 'INR',
+    maximumFractionDigits: 2,
+  }).format(Number(val) || 0)
+
+export function generateBarcode() {
+  const digits = '0123456789'
+  const rand = crypto.getRandomValues(new Uint32Array(9))
+  let code = '890'
+  for (let i = 0; i < 9; i++) {
+    code += digits[rand[i] % 10]
+  }
+  return code
+}
