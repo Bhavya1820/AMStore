@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { api } from '../api/client'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
@@ -24,7 +24,235 @@ import {
 } from '../components/PartyModals'
 import { formatCurrency, formatDate } from '../utils/helpers'
 
-function PaginationBar({ page, totalPages, total, limit, onPageChange, onLimitChange }) {
+const ROW_HEIGHT = 72
+const VIEWPORT_HEIGHT = 540
+const OVERSCAN = 6
+
+/* ----------------------- Virtualized Parties Table ------------------------ */
+
+function VirtualizedPartiesTable({
+  parties,
+  loading,
+  canManageParty,
+  canRecordPayment,
+  onOpenLedger,
+  onRecordPayment,
+  onEditParty,
+  onDeleteParty,
+}) {
+  const containerRef = useRef(null)
+  const [scrollTop, setScrollTop] = useState(0)
+
+  const totalCount = parties.length
+  const visibleCount = Math.ceil(VIEWPORT_HEIGHT / ROW_HEIGHT)
+  const startIndex = Math.max(0, Math.floor(scrollTop / ROW_HEIGHT) - OVERSCAN)
+  const endIndex = Math.min(totalCount, startIndex + visibleCount + OVERSCAN * 2)
+
+  const topSpacerHeight = startIndex * ROW_HEIGHT
+  const bottomSpacerHeight = Math.max(0, (totalCount - endIndex) * ROW_HEIGHT)
+  const visibleParties = parties.slice(startIndex, endIndex)
+
+  const handleScroll = (e) => {
+    setScrollTop(e.currentTarget.scrollTop)
+  }
+
+  return (
+    <div
+      ref={containerRef}
+      className="table-wrap"
+      style={{ maxHeight: VIEWPORT_HEIGHT, overflowY: 'auto', position: 'relative' }}
+      onScroll={handleScroll}
+    >
+      <table style={{ minWidth: 880 }}>
+        <thead style={{ position: 'sticky', top: 0, zIndex: 10 }}>
+          <tr>
+            <th>Party / Vendor</th>
+            <th>Contact</th>
+            <th>GSTIN & Address</th>
+            <th>Closing Balance</th>
+            <th>Status</th>
+            <th style={{ textAlign: 'right' }}>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {loading &&
+            [1, 2, 3, 4, 5, 6].map((i) => (
+              <tr key={i} style={{ height: ROW_HEIGHT }}>
+                {[1, 2, 3, 4, 5, 6].map((c) => (
+                  <td key={c}>
+                    <div className="skeleton" />
+                  </td>
+                ))}
+              </tr>
+            ))}
+
+          {!loading && totalCount === 0 && (
+            <tr>
+              <td colSpan={6}>
+                <div className="empty">
+                  No parties found matching your filters.{' '}
+                  {canManageParty
+                    ? 'Click "Add Party" or "Bulk Upload (Excel / PDF)" to add your vendors.'
+                    : ''}
+                </div>
+              </td>
+            </tr>
+          )}
+
+          {!loading && totalCount > 0 && (
+            <>
+              {topSpacerHeight > 0 && (
+                <tr aria-hidden="true" style={{ height: topSpacerHeight }}>
+                  <td colSpan={6} style={{ padding: 0, border: 0 }} />
+                </tr>
+              )}
+
+              {visibleParties.map((party) => {
+                const isPayable = party.balance > 0.004
+                const isAdvance = party.balance < -0.004
+
+                return (
+                  <tr
+                    key={party.id}
+                    id={`party-row-${party.id}`}
+                    style={{ height: ROW_HEIGHT }}
+                  >
+                    <td>
+                      <div className="cell-user">
+                        <span className="avatar">
+                          {party.name.charAt(0).toUpperCase()}
+                        </span>
+                        <div>
+                          <strong>{party.name}</strong>
+                          <small>Added {formatDate(party.createdAt)}</small>
+                        </div>
+                      </div>
+                    </td>
+
+                    <td>
+                      <div>{party.mobileNumber || '—'}</div>
+                      {party.email && <small className="muted">{party.email}</small>}
+                    </td>
+
+                    <td>
+                      {party.gstIn ? (
+                        <span
+                          className="code-pill"
+                          style={{ fontSize: '0.75rem', padding: '3px 8px' }}
+                        >
+                          {party.gstIn}
+                        </span>
+                      ) : (
+                        <span className="muted">No GSTIN</span>
+                      )}
+                      {party.address && (
+                        <small
+                          className="muted"
+                          style={{
+                            display: 'block',
+                            marginTop: 3,
+                            maxWidth: 230,
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                          }}
+                          title={party.address}
+                        >
+                          {party.address}
+                        </small>
+                      )}
+                    </td>
+
+                    <td>
+                      <span
+                        className={`badge ${
+                          isPayable ? 'purchase' : isAdvance ? 'on' : ''
+                        }`}
+                        style={{
+                          fontSize: '0.86rem',
+                          padding: '5px 12px',
+                          cursor: 'pointer',
+                          fontWeight: 700,
+                        }}
+                        title="Click to open Party Ledger"
+                        onClick={() => onOpenLedger(party)}
+                      >
+                        {formatCurrency(Math.abs(party.balance))}{' '}
+                        {isPayable ? '(Payable)' : isAdvance ? '(Advance)' : '(Settled)'}
+                      </span>
+                    </td>
+
+                    <td>
+                      <span className={`badge ${party.isActive ? 'on' : 'off'}`}>
+                        {party.isActive ? 'Active' : 'Archived'}
+                      </span>
+                    </td>
+
+                    <td>
+                      <div className="row-actions" style={{ gap: 6 }}>
+                        <Button
+                          id={`party-ledger-btn-${party.id}`}
+                          size="sm"
+                          variant="ghost"
+                          title="View Party Ledger"
+                          onClick={() => onOpenLedger(party)}
+                        >
+                          <IconLedger size={15} /> Ledger
+                        </Button>
+
+                        {canRecordPayment && party.isActive && (
+                          <button
+                            className="btn-icon"
+                            title="Record Payment Out to Party"
+                            aria-label={`Record payment to ${party.name}`}
+                            onClick={() => onRecordPayment(party)}
+                          >
+                            <IconWallet size={17} />
+                          </button>
+                        )}
+
+                        {canManageParty && (
+                          <>
+                            <button
+                              className="btn-icon"
+                              title="Edit Party"
+                              aria-label={`Edit ${party.name}`}
+                              onClick={() => onEditParty(party)}
+                            >
+                              <IconEdit size={17} />
+                            </button>
+                            <button
+                              className="btn-icon"
+                              title="Delete Party"
+                              aria-label={`Delete ${party.name}`}
+                              onClick={() => onDeleteParty(party)}
+                            >
+                              <IconTrash size={17} />
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                )
+              })}
+
+              {bottomSpacerHeight > 0 && (
+                <tr aria-hidden="true" style={{ height: bottomSpacerHeight }}>
+                  <td colSpan={6} style={{ padding: 0, border: 0 }} />
+                </tr>
+              )}
+            </>
+          )}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+/* -------------------------- Pagination Controls --------------------------- */
+
+function PaginationBar({ page, totalPages, total, limit, onPageChange, onLimitChange, renderedCount }) {
   const start = total === 0 ? 0 : (page - 1) * limit + 1
   const end = Math.min(total, page * limit)
 
@@ -57,6 +285,11 @@ function PaginationBar({ page, totalPages, total, limit, onPageChange, onLimitCh
         <span>
           Showing <strong>{start}–{end}</strong> of <strong>{total}</strong> parties
         </span>
+        {renderedCount !== undefined && total > 0 && (
+          <span className="badge" style={{ fontSize: '0.73rem' }}>
+            Virtualized ({renderedCount} DOM rows)
+          </span>
+        )}
         {onLimitChange && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             <span className="muted">Rows per page:</span>
@@ -68,7 +301,7 @@ function PaginationBar({ page, totalPages, total, limit, onPageChange, onLimitCh
               onChange={(e) => onLimitChange(Number(e.target.value))}
               aria-label="Rows per page"
             >
-              {[10, 25, 50, 100, 250].map((n) => (
+              {[10, 25, 50, 100, 250, 500].map((n) => (
                 <option key={n} value={n}>
                   {n}
                 </option>
@@ -128,6 +361,8 @@ function PaginationBar({ page, totalPages, total, limit, onPageChange, onLimitCh
   )
 }
 
+/* ----------------------------- Main Component ----------------------------- */
+
 export default function Parties() {
   const { has } = useAuth()
   const toast = useToast()
@@ -151,10 +386,10 @@ export default function Parties() {
     sortBy: 'name',
     sortOrder: 'asc',
     page: 1,
-    limit: 25,
+    limit: 50,
   })
 
-  // Modal state: { type: 'add' | 'edit' | 'delete' | 'ledger' | 'payment', party?: object }
+  // Modal state: { type: 'add' | 'bulk' | 'edit' | 'delete' | 'ledger' | 'payment', party?: object }
   const [modal, setModal] = useState(null)
 
   useEffect(() => {
@@ -217,6 +452,24 @@ export default function Parties() {
   )
 
   const summary = partiesData?.summary
+
+  const hasActiveFilters =
+    Boolean(searchInput) ||
+    filters.balance !== 'all' ||
+    filters.status !== 'active'
+
+  const resetFilters = () => {
+    setSearchInput('')
+    setFilters({
+      q: '',
+      status: 'active',
+      balance: 'all',
+      sortBy: 'name',
+      sortOrder: 'asc',
+      page: 1,
+      limit: filters.limit,
+    })
+  }
 
   return (
     <>
@@ -436,6 +689,12 @@ export default function Parties() {
           <option value="createdAt:desc">Newest First</option>
         </select>
 
+        {hasActiveFilters && (
+          <Button size="sm" variant="ghost" onClick={resetFilters}>
+            Clear Filters
+          </Button>
+        )}
+
         <button
           className="btn-icon"
           title="Refresh parties"
@@ -446,160 +705,17 @@ export default function Parties() {
         </button>
       </div>
 
-      {/* Parties Table */}
-      <div className="table-wrap">
-        <table style={{ minWidth: 860 }}>
-          <thead>
-            <tr>
-              <th>Party / Vendor</th>
-              <th>Contact</th>
-              <th>GSTIN & Address</th>
-              <th>Closing Balance</th>
-              <th>Status</th>
-              <th style={{ textAlign: 'right' }}>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loadingParties &&
-              [1, 2, 3, 4].map((i) => (
-                <tr key={i}>
-                  {[1, 2, 3, 4, 5, 6].map((c) => (
-                    <td key={c}>
-                      <div className="skeleton" />
-                    </td>
-                  ))}
-                </tr>
-              ))}
-
-            {!loadingParties && (partiesData?.parties?.length ?? 0) === 0 && (
-              <tr>
-                <td colSpan={6}>
-                  <div className="empty">
-                    No parties found matching your filters.{' '}
-                    {canManageParty ? 'Click "Add Party" to add your first vendor.' : ''}
-                  </div>
-                </td>
-              </tr>
-            )}
-
-            {!loadingParties &&
-              partiesData?.parties?.map((party) => {
-                const isPayable = party.balance > 0.004
-                const isAdvance = party.balance < -0.004
-
-                return (
-                  <tr key={party.id} id={`party-row-${party.id}`}>
-                    <td>
-                      <div className="cell-user">
-                        <span className="avatar">
-                          {party.name.charAt(0).toUpperCase()}
-                        </span>
-                        <div>
-                          <strong>{party.name}</strong>
-                          <small>Added {formatDate(party.createdAt)}</small>
-                        </div>
-                      </div>
-                    </td>
-
-                    <td>
-                      <div>{party.mobileNumber || '—'}</div>
-                      {party.email && <small className="muted">{party.email}</small>}
-                    </td>
-
-                    <td>
-                      {party.gstIn ? (
-                        <span
-                          className="code-pill"
-                          style={{ fontSize: '0.75rem', padding: '3px 8px' }}
-                        >
-                          {party.gstIn}
-                        </span>
-                      ) : (
-                        <span className="muted">No GSTIN</span>
-                      )}
-                      {party.address && (
-                        <small className="muted" style={{ display: 'block', marginTop: 3 }}>
-                          {party.address}
-                        </small>
-                      )}
-                    </td>
-
-                    <td>
-                      <span
-                        className={`badge ${
-                          isPayable ? 'purchase' : isAdvance ? 'on' : ''
-                        }`}
-                        style={{
-                          fontSize: '0.86rem',
-                          padding: '5px 12px',
-                          cursor: 'pointer',
-                          fontWeight: 700,
-                        }}
-                        title="Click to open Party Ledger"
-                        onClick={() => setModal({ type: 'ledger', party })}
-                      >
-                        {formatCurrency(Math.abs(party.balance))}{' '}
-                        {isPayable ? '(Payable)' : isAdvance ? '(Advance)' : '(Settled)'}
-                      </span>
-                    </td>
-
-                    <td>
-                      <span className={`badge ${party.isActive ? 'on' : 'off'}`}>
-                        {party.isActive ? 'Active' : 'Archived'}
-                      </span>
-                    </td>
-
-                    <td>
-                      <div className="row-actions" style={{ gap: 6 }}>
-                        <Button
-                          id={`party-ledger-btn-${party.id}`}
-                          size="sm"
-                          variant="ghost"
-                          title="View Party Ledger"
-                          onClick={() => setModal({ type: 'ledger', party })}
-                        >
-                          <IconLedger size={15} /> Ledger
-                        </Button>
-
-                        {canRecordPayment && party.isActive && (
-                          <button
-                            className="btn-icon"
-                            title="Record Payment Out to Party"
-                            aria-label={`Record payment to ${party.name}`}
-                            onClick={() => setModal({ type: 'payment', party })}
-                          >
-                            <IconWallet size={17} />
-                          </button>
-                        )}
-
-                        {canManageParty && (
-                          <>
-                            <button
-                              className="btn-icon"
-                              title="Edit Party"
-                              aria-label={`Edit ${party.name}`}
-                              onClick={() => setModal({ type: 'edit', party })}
-                            >
-                              <IconEdit size={17} />
-                            </button>
-                            <button
-                              className="btn-icon"
-                              title="Delete Party"
-                              aria-label={`Delete ${party.name}`}
-                              onClick={() => setModal({ type: 'delete', party })}
-                            >
-                              <IconTrash size={17} />
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                )
-              })}
-          </tbody>
-        </table>
-      </div>
+      {/* Virtualized Parties Table */}
+      <VirtualizedPartiesTable
+        parties={partiesData?.parties ?? []}
+        loading={loadingParties}
+        canManageParty={canManageParty}
+        canRecordPayment={canRecordPayment}
+        onOpenLedger={(party) => setModal({ type: 'ledger', party })}
+        onRecordPayment={(party) => setModal({ type: 'payment', party })}
+        onEditParty={(party) => setModal({ type: 'edit', party })}
+        onDeleteParty={(party) => setModal({ type: 'delete', party })}
+      />
 
       {partiesData && (
         <PaginationBar
@@ -607,6 +723,10 @@ export default function Parties() {
           totalPages={partiesData.totalPages}
           total={partiesData.total}
           limit={filters.limit}
+          renderedCount={Math.min(
+            partiesData.parties.length,
+            Math.ceil(VIEWPORT_HEIGHT / ROW_HEIGHT) + OVERSCAN * 2
+          )}
           onPageChange={(page) => setFilters((f) => ({ ...f, page }))}
           onLimitChange={(limit) => setFilters((f) => ({ ...f, limit, page: 1 }))}
         />
