@@ -8,6 +8,7 @@ import {
 } from "../middleware/authMiddleware";
 import {
   createParty,
+  bulkCreateParties,
   updateParty,
   deleteParty,
   getParty,
@@ -48,7 +49,7 @@ router.get("/", authorizeAny("party:view", "party:manage"), async (req, res) => 
       sortBy: z.enum(["name", "balance", "createdAt"]).default("name"),
       sortOrder: z.enum(["asc", "desc"]).default("asc"),
       page: z.coerce.number().int().min(1).default(1),
-      limit: z.coerce.number().int().min(1).max(200).default(50),
+      limit: z.coerce.number().int().min(1).max(500).default(25),
     })
     .parse(req.query);
 
@@ -70,6 +71,29 @@ router.post("/", authorize("party:manage"), async (req, res) => {
 
   const party = await createParty(req.auth!, req.storeId!, body);
   res.status(201).json({ party });
+});
+
+const bulkPartyRowSchema = z.object({
+  rowNumber: z.coerce.number().int().optional(),
+  name: nameSchema,
+  mobileNumber: z.union([z.string().trim().min(7).max(20), z.literal("")]).optional(),
+  email: z.union([emailSchema, z.literal("")]).optional(),
+  gstIn: z.union([z.string().trim().length(15, "GSTIN must be 15 characters"), z.literal("")]).optional(),
+  address: z.string().trim().max(300).optional(),
+  openingBalance: z.coerce.number().default(0),
+  openingType: z.enum(["payable", "advance"]).optional(),
+  remarks: z.string().trim().max(300).optional(),
+});
+
+router.post("/bulk", authorize("party:manage"), async (req, res) => {
+  const { parties } = z
+    .object({
+      parties: z.array(bulkPartyRowSchema).min(1, "At least one party is required").max(10000),
+    })
+    .parse(req.body);
+
+  const result = await bulkCreateParties(req.auth!, req.storeId!, parties);
+  res.status(201).json(result);
 });
 
 router.get("/:id", authorizeAny("party:view", "party:manage"), async (req, res) => {

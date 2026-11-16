@@ -170,6 +170,127 @@ export async function createParty(
   });
 }
 
+/* ------------------------------- bulk import ------------------------------ */
+
+export interface BulkPartyRowInput extends PartyInput {
+  rowNumber?: number;
+  openingBalance?: number;
+  openingType?: "payable" | "advance";
+  remarks?: string;
+}
+
+export async function bulkCreateParties(
+  ctx: AuthContext,
+  storeId: string,
+  rows: BulkPartyRowInput[]
+) {
+  if (!rows.length) {
+    throw new AppError(400, "No parties provided for bulk import");
+  }
+  if (rows.length > 10000) {
+    throw new AppError(400, "Maximum 10,000 parties can be imported at once");
+  }
+
+  // Load existing active party names in this store (case-insensitive)
+  const existingParties = await Party.find({
+    tenantId: ctx.tenantId,
+    storeId,
+    isActive: true,
+  }).select("name");
+
+  const existingNameSet = new Set(existingParties.map((p) => p.name.trim().toLowerCase()));
+  const seenInBatch = new Set<string>();
+
+  const errors: Array<{ row: number; name: string; message: string }> = [];
+  const partiesToInsert: Array<Record<string, unknown>> = [];
+  const ledgersToInsert: Array<Record<string, unknown>> = [];
+  const now = new Date();
+
+  rows.forEach((row, idx) => {
+    const rowNum = row.rowNumber ?? idx + 2;
+    const name = row.name.trim();
+    const lowerName = name.toLowerCase();
+
+    if (existingNameSet.has(lowerName)) {
+      errors.push({
+        row: rowNum,
+        name,
+        message: `Party "${name}" already exists in this facility`,
+      });
+      return;
+    }
+
+    if (seenInBatch.has(lowerName)) {
+      errors.push({
+        row: rowNum,
+        name,
+        message: `Duplicate party name "${name}" found within the uploaded file`,
+      });
+      return;
+    }
+
+    seenInBatch.add(lowerName);
+
+    const rawOpening = money(Number(row.openingBalance) || 0);
+    const signedOpening =
+      row.openingType === "advance" && rawOpening > 0 ? -rawOpening : rawOpening;
+
+    const partyId = new mongoose.Types.ObjectId();
+
+    partiesToInsert.push({
+      _id: partyId,
+      tenantId: ctx.tenantId,
+      storeId,
+      name,
+      ...(row.mobileNumber?.trim() ? { mobileNumber: row.mobileNumber.trim() } : {}),
+      ...(row.email?.trim() ? { email: row.email.trim().toLowerCase() } : {}),
+      ...(row.gstIn?.trim() ? { gstIn: row.gstIn.trim().toUpperCase() } : {}),
+      ...(row.address?.trim() ? { address: row.address.trim() } : {}),
+      openingBalance: signedOpening,
+      balance: signedOpening,
+      isActive: true,
+      createdBy: ctx.userId,
+    });
+
+    if (signedOpening !== 0) {
+      ledgersToInsert.push({
+        tenantId: ctx.tenantId,
+        storeId,
+        account: "party",
+        accountId: partyId,
+        party: partyId,
+        userId: ctx.userId,
+        date: now,
+        type: "opening_balance",
+        amount: Math.abs(signedOpening),
+        credit: signedOpening > 0 ? signedOpening : 0,
+        debit: signedOpening < 0 ? Math.abs(signedOpening) : 0,
+        balanceAmount: signedOpening,
+        partyBalance: signedOpening,
+        payment: [],
+        remarks:
+          row.remarks?.trim() ||
+          (signedOpening > 0
+            ? "Bulk import — opening balance (payable to party)"
+            : "Bulk import — opening balance (advance paid to party)"),
+      });
+    }
+  });
+
+  if (partiesToInsert.length > 0) {
+    await Party.insertMany(partiesToInsert, { ordered: false });
+  }
+  if (ledgersToInsert.length > 0) {
+    await Ledger.insertMany(ledgersToInsert, { ordered: false });
+  }
+
+  return {
+    importedCount: partiesToInsert.length,
+    skippedCount: errors.length,
+    errors,
+  };
+}
+
 export async function updateParty(
   ctx: AuthContext,
   storeId: string,

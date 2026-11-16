@@ -1,12 +1,16 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { api } from '../api/client'
 import { Button, ErrorAlert, Field, Modal, TextField } from './ui'
 import {
   IconBuilding,
+  IconCheck,
+  IconDownload,
   IconMail,
   IconMapPin,
   IconPhone,
+  IconSheet,
   IconTruck,
+  IconUpload,
   IconWallet,
 } from './Icons'
 import {
@@ -16,6 +20,12 @@ import {
   formatDate,
   isEmail,
 } from '../utils/helpers'
+import {
+  DEMO_PARTY_ROWS,
+  PARTY_COLUMNS,
+  downloadDemoPartiesFile,
+  parsePartyBulkFile,
+} from '../utils/partyBulk'
 
 const PAYMENT_METHODS = [
   { value: 'cash', label: 'Cash' },
@@ -900,20 +910,48 @@ export function PartyLedgerModal({
       </div>
 
       {/* Pagination Footer */}
-      {data && data.totalPages > 1 && (
+      {data && (
         <div
           style={{
             display: 'flex',
+            flexWrap: 'wrap',
             justifyContent: 'space-between',
             alignItems: 'center',
+            gap: 10,
             marginTop: 14,
             fontSize: '0.86rem',
           }}
         >
-          <span className="muted">
-            Page {data.page} of {data.totalPages} ({data.total} entries)
-          </span>
-          <div style={{ display: 'flex', gap: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+            <span className="muted">
+              Page <strong>{data.page}</strong> of <strong>{data.totalPages}</strong> ({data.total} entries)
+            </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span className="muted">Rows:</span>
+              <select
+                className="input"
+                style={{ width: 'auto', padding: '4px 8px', fontSize: '0.82rem' }}
+                value={filters.limit}
+                onChange={(e) => setFilters((f) => ({ ...f, limit: Number(e.target.value), page: 1 }))}
+                aria-label="Ledger rows per page"
+              >
+                {[10, 25, 50, 100].map((n) => (
+                  <option key={n} value={n}>
+                    {n}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={data.page <= 1}
+              onClick={() => setFilters((f) => ({ ...f, page: 1 }))}
+            >
+              First
+            </Button>
             <Button
               size="sm"
               variant="ghost"
@@ -930,6 +968,530 @@ export function PartyLedgerModal({
             >
               Next
             </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={data.page >= data.totalPages}
+              onClick={() => setFilters((f) => ({ ...f, page: data.totalPages }))}
+            >
+              Last
+            </Button>
+          </div>
+        </div>
+      )}
+    </Modal>
+  )
+}
+
+/* ------------------ Bulk Party Upload Modal (Excel / PDF) ----------------- */
+
+export function BulkPartyUploadModal({ storeId, onClose, onImported }) {
+  const fileInputRef = useRef(null)
+  const [tab, setTab] = useState('upload') // 'upload' | 'guide'
+  const [fileName, setFileName] = useState('')
+  const [parsed, setParsed] = useState(null) // { rows, validRows, invalidRows }
+  const [parseError, setParseError] = useState('')
+  const [serverError, setServerError] = useState(null)
+  const [importing, setImporting] = useState(false)
+  const [result, setResult] = useState(null)
+
+  const handleFileChange = async (file) => {
+    if (!file) return
+    setParseError('')
+    setServerError(null)
+    setResult(null)
+    setFileName(file.name)
+    try {
+      const res = await parsePartyBulkFile(file)
+      setParsed(res)
+    } catch (err) {
+      setParsed(null)
+      setParseError(err.message || 'Could not parse the selected Excel / PDF file')
+    }
+  }
+
+  const handleLoadDemoIntoPreview = () => {
+    setParseError('')
+    setServerError(null)
+    setResult(null)
+    setFileName('AMStore_Parties_Demo (Sample Data)')
+    const rows = DEMO_PARTY_ROWS.map((r, i) => ({
+      ...r,
+      rowNumber: i + 2,
+      valid: true,
+      errors: [],
+    }))
+    setParsed({ rows, validRows: rows, invalidRows: [] })
+    setTab('upload')
+  }
+
+  const handleImport = async () => {
+    if (!parsed || parsed.validRows.length === 0) return
+    setImporting(true)
+    setServerError(null)
+    try {
+      const payload = {
+        parties: parsed.validRows.map((r) => ({
+          rowNumber: r.rowNumber,
+          name: r.name,
+          ...(r.mobileNumber ? { mobileNumber: r.mobileNumber } : {}),
+          ...(r.email ? { email: r.email } : {}),
+          ...(r.gstIn ? { gstIn: r.gstIn } : {}),
+          ...(r.address ? { address: r.address } : {}),
+          openingBalance: Number(r.openingBalance) || 0,
+          openingType: r.openingType === 'advance' ? 'advance' : 'payable',
+          ...(r.remarks ? { remarks: r.remarks } : {}),
+        })),
+      }
+      const res = await api.post(`/parties/bulk?storeId=${storeId}`, payload)
+      setResult(res)
+      if (res.importedCount > 0) {
+        onImported(res)
+      }
+    } catch (err) {
+      setServerError(err)
+    } finally {
+      setImporting(false)
+    }
+  }
+
+  return (
+    <Modal
+      title="Bulk Add Parties / Vendors via Excel or PDF"
+      subtitle="Upload an Excel (.xlsx), PDF (.pdf), or CSV (.csv) file to add multiple vendors and record their opening balance ledgers at once."
+      onClose={onClose}
+      maxWidth={960}
+      footer={
+        <>
+          <Button variant="ghost" type="button" onClick={onClose}>
+            {result ? 'Close' : 'Cancel'}
+          </Button>
+          {!result && parsed?.validRows?.length > 0 && (
+            <Button
+              id="confirm-bulk-party-import-btn"
+              variant="primary"
+              loading={importing}
+              onClick={handleImport}
+            >
+              <IconUpload size={16} /> Import {parsed.validRows.length} Valid{' '}
+              {parsed.validRows.length === 1 ? 'Party' : 'Parties'}
+            </Button>
+          )}
+        </>
+      }
+    >
+      {/* Top Sample Excel & Sample PDF Download Banner */}
+      <div
+        className="card"
+        style={{
+          padding: '14px 18px',
+          marginBottom: 16,
+          background: 'linear-gradient(120deg, var(--plum-800), var(--plum-950))',
+          color: '#fff',
+          display: 'flex',
+          flexWrap: 'wrap',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          gap: 12,
+        }}
+      >
+        <div>
+          <strong style={{ fontSize: '0.98rem', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <IconSheet size={18} /> Download Sample Excel / PDF Template
+          </strong>
+          <small style={{ color: '#d9c9e0' }}>
+            Get the ready-to-use sample vendor file in Excel (.xlsx), PDF (.pdf), or CSV (.csv) format.
+          </small>
+        </div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <Button
+            id="download-party-demo-xlsx-btn"
+            size="sm"
+            variant="primary"
+            type="button"
+            onClick={() => downloadDemoPartiesFile('xlsx')}
+          >
+            <IconDownload size={15} /> Sample Excel (.xlsx)
+          </Button>
+          <Button
+            id="download-party-demo-pdf-btn"
+            size="sm"
+            type="button"
+            style={{ background: 'rgba(255,255,255,0.16)', color: '#fff', borderColor: 'rgba(255,255,255,0.22)' }}
+            onClick={() => downloadDemoPartiesFile('pdf')}
+          >
+            <IconDownload size={15} /> Sample PDF (.pdf)
+          </Button>
+          <Button
+            id="download-party-demo-csv-btn"
+            size="sm"
+            type="button"
+            style={{ background: 'rgba(255,255,255,0.1)', color: '#fff' }}
+            onClick={() => downloadDemoPartiesFile('csv')}
+          >
+            <IconDownload size={15} /> Sample CSV (.csv)
+          </Button>
+        </div>
+      </div>
+
+      {/* View Switcher inside Modal */}
+      <div className="tabs" style={{ maxWidth: 480, marginBottom: 16 }} role="tablist">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tab === 'upload'}
+          className={tab === 'upload' ? 'active' : ''}
+          onClick={() => setTab('upload')}
+        >
+          1. Upload Excel / PDF & Preview
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={tab === 'guide'}
+          className={tab === 'guide' ? 'active' : ''}
+          onClick={() => setTab('guide')}
+        >
+          2. Columns Guide & Sample Table
+        </button>
+      </div>
+
+      <ErrorAlert error={serverError} />
+      {parseError && <div className="alert alert-error">{parseError}</div>}
+
+      {/* Import Result Banner */}
+      {result && (
+        <div
+          className={`alert ${result.importedCount > 0 ? 'alert-success' : 'alert-info'}`}
+          style={{ flexDirection: 'column', gap: 8 }}
+        >
+          <div style={{ fontWeight: 700, fontSize: '0.98rem' }}>
+            <IconCheck size={18} style={{ verticalAlign: 'middle', marginRight: 6 }} />
+            Imported {result.importedCount} {result.importedCount === 1 ? 'party' : 'parties'} successfully
+            {result.skippedCount > 0 ? ` · ${result.skippedCount} skipped` : ''}.
+          </div>
+          {result.errors?.length > 0 && (
+            <ul style={{ margin: '4px 0 0', paddingLeft: 20, fontSize: '0.84rem' }}>
+              {result.errors.map((e, idx) => (
+                <li key={idx}>
+                  Row {e.row} (<strong>{e.name}</strong>): {e.message}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+
+      {tab === 'upload' && (
+        <>
+          {/* Quick Column Pill Strip */}
+          <div
+            className="card"
+            style={{
+              padding: '12px 16px',
+              marginBottom: 16,
+              background: 'var(--cream-50)',
+              fontSize: '0.84rem',
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <strong>File Columns (Header Row):</strong>
+              <button
+                type="button"
+                className="link-btn"
+                style={{ fontSize: '0.82rem' }}
+                onClick={() => setTab('guide')}
+              >
+                View full column specs & sample sheet →
+              </button>
+            </div>
+            <div className="chips" style={{ marginTop: 4 }}>
+              {PARTY_COLUMNS.map((c) => (
+                <span
+                  key={c.key}
+                  className="chip"
+                  style={{
+                    fontFamily: 'ui-monospace, Consolas, monospace',
+                    fontSize: '0.76rem',
+                    borderColor: c.required ? 'var(--rose-400)' : undefined,
+                    background: c.required ? '#fff0f4' : '#fff',
+                  }}
+                  title={`${c.label}: ${c.description}`}
+                >
+                  {c.header}
+                  {c.required ? ' *' : ''}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          {/* File Dropzone */}
+          <div
+            className="card"
+            style={{
+              border: '2px dashed var(--ink-300)',
+              background: '#fff',
+              textAlign: 'center',
+              padding: '26px 20px',
+              marginBottom: 16,
+              cursor: 'pointer',
+            }}
+            onClick={() => fileInputRef.current?.click()}
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={(e) => {
+              e.preventDefault()
+              const dropped = e.dataTransfer.files?.[0]
+              if (dropped) handleFileChange(dropped)
+            }}
+          >
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".xlsx,.pdf,.csv,.tsv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/pdf,text/csv"
+              style={{ display: 'none' }}
+              onChange={(e) => handleFileChange(e.target.files?.[0])}
+            />
+            <IconUpload size={28} style={{ color: 'var(--rose-500)', marginBottom: 8 }} />
+            <div style={{ fontWeight: 600, fontSize: '1rem' }}>
+              {fileName
+                ? `Selected: ${fileName}`
+                : 'Click to select or drag & drop your Excel (.xlsx), PDF (.pdf), or CSV file'}
+            </div>
+            <p className="muted" style={{ marginTop: 4, fontSize: '0.84rem' }}>
+              Supports Microsoft Excel (.xlsx), PDF (.pdf), and CSV (.csv) up to 10,000 parties per upload.
+            </p>
+            <div
+              style={{ marginTop: 12, display: 'flex', justifyContent: 'center', gap: 10 }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <Button
+                size="sm"
+                variant="ghost"
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                Choose File (.xlsx / .pdf / .csv)
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                type="button"
+                onClick={handleLoadDemoIntoPreview}
+              >
+                Load Sample Parties into Preview
+              </Button>
+            </div>
+          </div>
+
+          {/* Parsed Rows Preview Table */}
+          {parsed && (
+            <div>
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  marginBottom: 10,
+                  flexWrap: 'wrap',
+                  gap: 8,
+                }}
+              >
+                <div style={{ fontSize: '0.9rem', fontWeight: 600 }}>
+                  File Preview: {parsed.rows.length} rows detected (
+                  <span style={{ color: 'var(--green-500)' }}>{parsed.validRows.length} valid</span>
+                  {parsed.invalidRows.length > 0 && (
+                    <>
+                      ,{' '}
+                      <span style={{ color: 'var(--red-500)' }}>
+                        {parsed.invalidRows.length} with errors
+                      </span>
+                    </>
+                  )}
+                  )
+                </div>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    setParsed(null)
+                    setFileName('')
+                    setResult(null)
+                  }}
+                >
+                  Clear Preview
+                </Button>
+              </div>
+
+              <div className="table-wrap" style={{ maxHeight: 300, overflowY: 'auto' }}>
+                <table style={{ minWidth: 860 }}>
+                  <thead style={{ position: 'sticky', top: 0, zIndex: 10 }}>
+                    <tr>
+                      <th>Row</th>
+                      <th>Status</th>
+                      <th>name</th>
+                      <th>mobileNumber</th>
+                      <th>email</th>
+                      <th>gstIn</th>
+                      <th>address</th>
+                      <th>openingBalance</th>
+                      <th>openingType</th>
+                      <th>remarks</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {parsed.rows.slice(0, 100).map((r) => (
+                      <tr key={r.rowNumber}>
+                        <td>#{r.rowNumber}</td>
+                        <td>
+                          {r.valid ? (
+                            <span className="badge on">Ready</span>
+                          ) : (
+                            <span className="badge purchase" title={r.errors.join('; ')}>
+                              {r.errors[0]}
+                            </span>
+                          )}
+                        </td>
+                        <td>
+                          <strong>{r.name || '—'}</strong>
+                        </td>
+                        <td>{r.mobileNumber || '—'}</td>
+                        <td>{r.email || '—'}</td>
+                        <td style={{ fontFamily: 'monospace', fontSize: '0.82rem' }}>{r.gstIn || '—'}</td>
+                        <td>{r.address || '—'}</td>
+                        <td style={{ fontWeight: 600 }}>{formatCurrency(r.openingBalance)}</td>
+                        <td>
+                          <span className={`badge ${r.openingType === 'advance' ? 'on' : 'owner'}`}>
+                            {r.openingType}
+                          </span>
+                        </td>
+                        <td style={{ fontSize: '0.82rem', color: 'var(--ink-500)' }}>
+                          {r.remarks || '—'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {parsed.rows.length > 100 && (
+                <p className="muted" style={{ marginTop: 8, fontSize: '0.82rem' }}>
+                  Showing first 100 of {parsed.rows.length} rows in preview. All {parsed.validRows.length} valid parties will be imported.
+                </p>
+              )}
+            </div>
+          )}
+        </>
+      )}
+
+      {tab === 'guide' && (
+        <div style={{ display: 'grid', gap: 18 }}>
+          {/* Column Reference Table */}
+          <div>
+            <h3 style={{ fontSize: '1rem', marginBottom: 4 }}>
+              Excel / PDF Column Specifications
+            </h3>
+            <p className="muted" style={{ fontSize: '0.85rem', marginBottom: 10 }}>
+              Use these column names in the header row of your Excel sheet or PDF table. Only <code>name</code> is required; all other columns are optional.
+            </p>
+            <div className="table-wrap" style={{ maxHeight: 280, overflowY: 'auto' }}>
+              <table style={{ minWidth: 740 }}>
+                <thead style={{ position: 'sticky', top: 0, zIndex: 10 }}>
+                  <tr>
+                    <th>Column Header</th>
+                    <th>Field Label</th>
+                    <th>Required</th>
+                    <th>Data Type</th>
+                    <th>Example Value</th>
+                    <th>Description / Accepted Values</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {PARTY_COLUMNS.map((col) => (
+                    <tr key={col.key}>
+                      <td>
+                        <code
+                          style={{
+                            background: 'var(--cream-100)',
+                            padding: '3px 8px',
+                            borderRadius: 6,
+                            fontWeight: 700,
+                          }}
+                        >
+                          {col.header}
+                        </code>
+                      </td>
+                      <td>{col.label}</td>
+                      <td>
+                        <span className={`badge ${col.required ? 'owner' : 'off'}`}>
+                          {col.required ? 'Required *' : 'Optional'}
+                        </span>
+                      </td>
+                      <td style={{ fontSize: '0.84rem' }}>{col.type}</td>
+                      <td style={{ fontFamily: 'monospace', fontSize: '0.82rem' }}>
+                        {col.example}
+                      </td>
+                      <td style={{ fontSize: '0.84rem', color: 'var(--ink-700)' }}>
+                        {col.description}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Demo Table Live Preview */}
+          <div>
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: 8,
+                flexWrap: 'wrap',
+                gap: 8,
+              }}
+            >
+              <div>
+                <h3 style={{ fontSize: '1rem' }}>Sample Excel / PDF Sheet Preview</h3>
+                <p className="muted" style={{ fontSize: '0.84rem' }}>
+                  This is the exact data inside the downloadable Sample Excel (.xlsx) and Sample PDF (.pdf) files.
+                </p>
+              </div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <Button size="sm" variant="ghost" type="button" onClick={handleLoadDemoIntoPreview}>
+                  Load Sample into Importer
+                </Button>
+                <Button size="sm" variant="ghost" type="button" onClick={() => downloadDemoPartiesFile('pdf')}>
+                  <IconDownload size={14} /> Download .pdf
+                </Button>
+                <Button size="sm" variant="primary" type="button" onClick={() => downloadDemoPartiesFile('xlsx')}>
+                  <IconDownload size={14} /> Download .xlsx
+                </Button>
+              </div>
+            </div>
+
+            <div className="table-wrap" style={{ overflowX: 'auto' }}>
+              <table style={{ minWidth: 920, fontSize: '0.84rem' }}>
+                <thead>
+                  <tr>
+                    {PARTY_COLUMNS.map((c) => (
+                      <th key={c.key} style={{ textTransform: 'none', fontFamily: 'monospace' }}>
+                        {c.header}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {DEMO_PARTY_ROWS.map((row, idx) => (
+                    <tr key={idx}>
+                      {PARTY_COLUMNS.map((c) => (
+                        <td key={c.key}>{String(row[c.key] ?? '')}</td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       )}

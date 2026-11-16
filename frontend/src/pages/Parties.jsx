@@ -9,18 +9,124 @@ import {
   IconPlus,
   IconRefresh,
   IconSearch,
+  IconSheet,
   IconStore,
   IconTrash,
   IconTruck,
   IconWallet,
 } from '../components/Icons'
 import {
+  BulkPartyUploadModal,
   DeletePartyModal,
   PartyFormModal,
   PartyLedgerModal,
   RecordPartyPaymentModal,
 } from '../components/PartyModals'
 import { formatCurrency, formatDate } from '../utils/helpers'
+
+function PaginationBar({ page, totalPages, total, limit, onPageChange, onLimitChange }) {
+  const start = total === 0 ? 0 : (page - 1) * limit + 1
+  const end = Math.min(total, page * limit)
+
+  const pageNumbers = useMemo(() => {
+    const pages = []
+    const maxButtons = 5
+    let first = Math.max(1, page - Math.floor(maxButtons / 2))
+    let last = Math.min(totalPages, first + maxButtons - 1)
+    if (last - first + 1 < maxButtons) {
+      first = Math.max(1, last - maxButtons + 1)
+    }
+    for (let p = first; p <= last; p++) pages.push(p)
+    return pages
+  }, [page, totalPages])
+
+  return (
+    <div
+      className="card"
+      style={{
+        marginTop: 14,
+        padding: '12px 18px',
+        display: 'flex',
+        flexWrap: 'wrap',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        gap: 12,
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', fontSize: '0.88rem' }}>
+        <span>
+          Showing <strong>{start}–{end}</strong> of <strong>{total}</strong> parties
+        </span>
+        {onLimitChange && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span className="muted">Rows per page:</span>
+            <select
+              id="party-page-limit"
+              className="input"
+              style={{ width: 'auto', padding: '5px 10px', fontSize: '0.85rem' }}
+              value={limit}
+              onChange={(e) => onLimitChange(Number(e.target.value))}
+              aria-label="Rows per page"
+            >
+              {[10, 25, 50, 100, 250].map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <Button
+          size="sm"
+          variant="ghost"
+          disabled={page <= 1}
+          onClick={() => onPageChange(1)}
+        >
+          First
+        </Button>
+        <Button
+          size="sm"
+          variant="ghost"
+          disabled={page <= 1}
+          onClick={() => onPageChange(page - 1)}
+        >
+          Prev
+        </Button>
+
+        {pageNumbers.map((p) => (
+          <Button
+            key={p}
+            size="sm"
+            variant={p === page ? 'primary' : 'ghost'}
+            onClick={() => onPageChange(p)}
+          >
+            {p}
+          </Button>
+        ))}
+
+        <Button
+          size="sm"
+          variant="ghost"
+          disabled={page >= totalPages}
+          onClick={() => onPageChange(page + 1)}
+        >
+          Next
+        </Button>
+        <Button
+          size="sm"
+          variant="ghost"
+          disabled={page >= totalPages}
+          onClick={() => onPageChange(totalPages)}
+        >
+          Last
+        </Button>
+      </div>
+    </div>
+  )
+}
 
 export default function Parties() {
   const { has } = useAuth()
@@ -45,7 +151,7 @@ export default function Parties() {
     sortBy: 'name',
     sortOrder: 'asc',
     page: 1,
-    limit: 50,
+    limit: 25,
   })
 
   // Modal state: { type: 'add' | 'edit' | 'delete' | 'ledger' | 'payment', party?: object }
@@ -160,14 +266,24 @@ export default function Parties() {
           ) : null}
 
           {canManageParty && (
-            <Button
-              id="add-party-btn"
-              variant="primary"
-              disabled={!selectedStoreId}
-              onClick={() => setModal({ type: 'add' })}
-            >
-              <IconPlus size={18} /> Add Party
-            </Button>
+            <>
+              <Button
+                id="bulk-upload-party-btn"
+                variant="ghost"
+                disabled={!selectedStoreId}
+                onClick={() => setModal({ type: 'bulk' })}
+              >
+                <IconSheet size={18} /> Bulk Upload (Excel / PDF)
+              </Button>
+              <Button
+                id="add-party-btn"
+                variant="primary"
+                disabled={!selectedStoreId}
+                onClick={() => setModal({ type: 'add' })}
+              >
+                <IconPlus size={18} /> Add Party
+              </Button>
+            </>
           )}
         </div>
       </div>
@@ -485,6 +601,17 @@ export default function Parties() {
         </table>
       </div>
 
+      {partiesData && (
+        <PaginationBar
+          page={partiesData.page}
+          totalPages={partiesData.totalPages}
+          total={partiesData.total}
+          limit={filters.limit}
+          onPageChange={(page) => setFilters((f) => ({ ...f, page }))}
+          onLimitChange={(limit) => setFilters((f) => ({ ...f, limit, page: 1 }))}
+        />
+      )}
+
       {/* ============================= MODALS ============================= */}
       {(modal?.type === 'add' || modal?.type === 'edit') && (
         <PartyFormModal
@@ -505,6 +632,17 @@ export default function Parties() {
           onClose={() => setModal(null)}
           onDeleted={(msg) => {
             toast.success(msg)
+            loadParties()
+          }}
+        />
+      )}
+
+      {modal?.type === 'bulk' && (
+        <BulkPartyUploadModal
+          storeId={selectedStoreId}
+          onClose={() => setModal(null)}
+          onImported={(res) => {
+            toast.success(`Imported ${res.importedCount} ${res.importedCount === 1 ? 'party' : 'parties'} successfully`)
             loadParties()
           }}
         />
