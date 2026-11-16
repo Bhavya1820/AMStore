@@ -17,10 +17,6 @@ import {
   getPartyLedger,
   listOpenInvoices,
 } from "../services/party.service";
-import {
-  createPurchaseInvoice,
-  listPurchaseInvoices,
-} from "../services/purchase.service";
 import { LEDGER_TYPES, PARTY_PAYMENT_METHODS } from "../models/Common";
 import { emailSchema, nameSchema, param } from "../utils/validation";
 
@@ -38,66 +34,6 @@ router.get(
     const q = typeof req.query.q === "string" ? req.query.q : undefined;
     const parties = await listPartyOptions(req.auth!, req.storeId!, q);
     res.json({ parties });
-  }
-);
-
-/* ---------------------------- purchase invoices --------------------------- */
-
-router.get(
-  "/purchases",
-  authorizeAny("purchase:view", "purchase:create", "party:manage"),
-  async (req, res) => {
-    const query = z
-      .object({
-        partyId: z.string().optional(),
-        q: z.string().optional(),
-        status: z.enum(["all", "paid", "unpaid", "partial"]).default("all"),
-        page: z.coerce.number().int().min(1).default(1),
-        limit: z.coerce.number().int().min(1).max(200).default(50),
-      })
-      .parse(req.query);
-
-    const result = await listPurchaseInvoices(req.auth!, req.storeId!, query);
-    res.json(result);
-  }
-);
-
-router.post(
-  "/purchases",
-  authorizeAny("purchase:create", "party:manage"),
-  async (req, res) => {
-    const body = z
-      .object({
-        partyId: z.string().min(1, "Party is required"),
-        invoiceNumber: z.string().trim().min(1, "Invoice number is required").max(80),
-        invoiceDate: z.string().optional(),
-        items: z
-          .array(
-            z.object({
-              itemId: z.string().min(1),
-              quantity: z.coerce.number().positive("Quantity must be greater than 0"),
-              rate: z.coerce.number().min(0, "Rate cannot be negative"),
-              priceIncludesTax: z.boolean().optional(),
-              discount: z.coerce.number().min(0).default(0),
-              gst: z.coerce.number().min(0).max(100).optional(),
-              updateItemPurchasePrice: z.boolean().optional(),
-            })
-          )
-          .min(1, "At least one item is required"),
-        payments: z
-          .array(
-            z.object({
-              amount: z.coerce.number().min(0),
-              method: z.enum(PARTY_PAYMENT_METHODS),
-            })
-          )
-          .optional(),
-        notes: z.string().trim().max(400).optional(),
-      })
-      .parse(req.body);
-
-    const invoice = await createPurchaseInvoice(req.auth!, req.storeId!, body);
-    res.status(201).json({ invoice });
   }
 );
 
@@ -213,4 +149,3 @@ router.post(
 );
 
 export default router;
-

@@ -39,7 +39,7 @@ export default function App() {
                 <Route
                   path="/parties"
                   element={
-                    <RequirePermission permission="party:view">
+                    <RequirePermission permission="party:manage">
                       <Parties />
                     </RequirePermission>
                   }

@@ -7,7 +7,7 @@ import { BrandMark, IconBox, IconDashboard, IconKey, IconLogout, IconMenu, IconS
 const TITLES = {
   '/dashboard': 'Dashboard',
   '/inventory': 'Inventory',
-  '/parties': 'Parties & Purchases',
+  '/parties': 'Parties / Vendors',
   '/facilities': 'Facilities',
   '/users': 'Users',
   '/change-password': 'Change password',
@@ -46,7 +46,7 @@ export default function Layout() {
   const nav = [
     { to: '/dashboard', label: 'Dashboard', icon: <IconDashboard />, show: true },
     { to: '/inventory', label: 'Inventory', icon: <IconBox />, show: canSeeInventory },
-    { to: '/parties', label: 'Parties / Vendors', icon: <IconTruck />, show: has('party:view') || has('party:manage') },
+    { to: '/parties', label: 'Parties / Vendors', icon: <IconTruck />, show: has('party:manage') },
     { to: '/facilities', label: 'Facilities', icon: <IconStore />, show: has('store:manage') },
     { to: '/users', label: 'Users', icon: <IconUsers />, show: has('user:view') },
   ].filter((n) => n.show)
