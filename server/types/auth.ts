@@ -5,6 +5,12 @@ export interface RegistrationTokenPayload{
   purpose: "registration";
 }
 
+export interface PasswordResetTokenPayload {
+  userId: string;
+  email: string;
+  purpose: "forgotPassword";
+}
+
 export interface AccessTokenPayload{
   userId: string;
   tenantId: string;

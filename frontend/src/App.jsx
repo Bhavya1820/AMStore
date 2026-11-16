@@ -5,10 +5,12 @@ import { GuestRoute, ProtectedRoute, RequirePermission } from './components/guar
 import Layout from './components/Layout'
 import Login from './pages/Login'
 import Register from './pages/Register'
+import ForgotPassword from './pages/ForgotPassword'
 import Dashboard from './pages/Dashboard'
 import Users from './pages/Users'
 import Stores from './pages/Stores'
 import Inventory from './pages/Inventory'
+import Parties from './pages/Parties'
 import ChangePassword from './pages/ChangePassword'
 
 export default function App() {
@@ -20,6 +22,7 @@ export default function App() {
             <Route element={<GuestRoute />}>
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
+              <Route path="/forgot-password" element={<ForgotPassword />} />
             </Route>
 
             <Route element={<ProtectedRoute />}>
@@ -30,6 +33,14 @@ export default function App() {
                   element={
                     <RequirePermission permission="item:view">
                       <Inventory />
+                    </RequirePermission>
+                  }
+                />
+                <Route
+                  path="/parties"
+                  element={
+                    <RequirePermission permission="party:view">
+                      <Parties />
                     </RequirePermission>
                   }
                 />

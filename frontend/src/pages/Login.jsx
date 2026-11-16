@@ -78,6 +78,12 @@ export default function Login() {
 
         <PasswordField id="login-password" label="Password" autoComplete="current-password" value={form.password} onChange={set('password')} error={errors.password} />
 
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: -8, marginBottom: 14, fontSize: '0.86rem' }}>
+          <Link to="/forgot-password" id="link-forgot-password">
+            Forgot password?
+          </Link>
+        </div>
+
         <Button id="login-submit" type="submit" variant="primary" block loading={loading}>
           Sign in
         </Button>

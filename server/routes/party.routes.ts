@@ -1,0 +1,216 @@
+import { Router } from "express";
+import { z } from "zod";
+import {
+  authenticate,
+  authorize,
+  authorizeAny,
+  requireStoreAccess,
+} from "../middleware/authMiddleware";
+import {
+  createParty,
+  updateParty,
+  deleteParty,
+  getParty,
+  listParties,
+  listPartyOptions,
+  recordPartyPayment,
+  getPartyLedger,
+  listOpenInvoices,
+} from "../services/party.service";
+import {
+  createPurchaseInvoice,
+  listPurchaseInvoices,
+} from "../services/purchase.service";
+import { LEDGER_TYPES, PARTY_PAYMENT_METHODS } from "../models/Common";
+import { emailSchema, nameSchema, param } from "../utils/validation";
+
+const router = Router();
+
+router.use(authenticate);
+router.use(requireStoreAccess);
+
+/* ----------------------------- party options ------------------------------ */
+
+router.get(
+  "/options",
+  authorizeAny("party:view", "party:manage", "purchase:create"),
+  async (req, res) => {
+    const q = typeof req.query.q === "string" ? req.query.q : undefined;
+    const parties = await listPartyOptions(req.auth!, req.storeId!, q);
+    res.json({ parties });
+  }
+);
+
+/* ---------------------------- purchase invoices --------------------------- */
+
+router.get(
+  "/purchases",
+  authorizeAny("purchase:view", "purchase:create", "party:manage"),
+  async (req, res) => {
+    const query = z
+      .object({
+        partyId: z.string().optional(),
+        q: z.string().optional(),
+        status: z.enum(["all", "paid", "unpaid", "partial"]).default("all"),
+        page: z.coerce.number().int().min(1).default(1),
+        limit: z.coerce.number().int().min(1).max(200).default(50),
+      })
+      .parse(req.query);
+
+    const result = await listPurchaseInvoices(req.auth!, req.storeId!, query);
+    res.json(result);
+  }
+);
+
+router.post(
+  "/purchases",
+  authorizeAny("purchase:create", "party:manage"),
+  async (req, res) => {
+    const body = z
+      .object({
+        partyId: z.string().min(1, "Party is required"),
+        invoiceNumber: z.string().trim().min(1, "Invoice number is required").max(80),
+        invoiceDate: z.string().optional(),
+        items: z
+          .array(
+            z.object({
+              itemId: z.string().min(1),
+              quantity: z.coerce.number().positive("Quantity must be greater than 0"),
+              rate: z.coerce.number().min(0, "Rate cannot be negative"),
+              priceIncludesTax: z.boolean().optional(),
+              discount: z.coerce.number().min(0).default(0),
+              gst: z.coerce.number().min(0).max(100).optional(),
+              updateItemPurchasePrice: z.boolean().optional(),
+            })
+          )
+          .min(1, "At least one item is required"),
+        payments: z
+          .array(
+            z.object({
+              amount: z.coerce.number().min(0),
+              method: z.enum(PARTY_PAYMENT_METHODS),
+            })
+          )
+          .optional(),
+        notes: z.string().trim().max(400).optional(),
+      })
+      .parse(req.body);
+
+    const invoice = await createPurchaseInvoice(req.auth!, req.storeId!, body);
+    res.status(201).json({ invoice });
+  }
+);
+
+/* ------------------------------- party CRUD ------------------------------- */
+
+router.get("/", authorizeAny("party:view", "party:manage"), async (req, res) => {
+  const query = z
+    .object({
+      q: z.string().optional(),
+      status: z.enum(["active", "archived", "all"]).default("active"),
+      balance: z.enum(["all", "payable", "advance", "settled"]).default("all"),
+      sortBy: z.enum(["name", "balance", "createdAt"]).default("name"),
+      sortOrder: z.enum(["asc", "desc"]).default("asc"),
+      page: z.coerce.number().int().min(1).default(1),
+      limit: z.coerce.number().int().min(1).max(200).default(50),
+    })
+    .parse(req.query);
+
+  const result = await listParties(req.auth!, req.storeId!, query);
+  res.json(result);
+});
+
+router.post("/", authorize("party:manage"), async (req, res) => {
+  const body = z
+    .object({
+      name: nameSchema,
+      mobileNumber: z.string().trim().min(7).max(20).optional(),
+      email: emailSchema.optional(),
+      gstIn: z.string().trim().length(15, "GSTIN must be 15 characters").optional(),
+      address: z.string().trim().max(300).optional(),
+      openingBalance: z.coerce.number().default(0),
+    })
+    .parse(req.body);
+
+  const party = await createParty(req.auth!, req.storeId!, body);
+  res.status(201).json({ party });
+});
+
+router.get("/:id", authorizeAny("party:view", "party:manage"), async (req, res) => {
+  const party = await getParty(req.auth!, req.storeId!, param(req.params.id));
+  res.json({ party });
+});
+
+router.patch("/:id", authorize("party:manage"), async (req, res) => {
+  const body = z
+    .object({
+      name: nameSchema.optional(),
+      mobileNumber: z.string().trim().max(20).optional(),
+      email: z.union([emailSchema, z.literal("")]).optional(),
+      gstIn: z.union([z.string().trim().length(15, "GSTIN must be 15 characters"), z.literal("")]).optional(),
+      address: z.string().trim().max(300).optional(),
+      isActive: z.boolean().optional(),
+    })
+    .refine((b) => Object.keys(b).length > 0, "Nothing to update")
+    .parse(req.body);
+
+  const party = await updateParty(req.auth!, req.storeId!, param(req.params.id), body);
+  res.json({ party });
+});
+
+router.delete("/:id", authorize("party:manage"), async (req, res) => {
+  const result = await deleteParty(req.auth!, req.storeId!, param(req.params.id));
+  res.json(result);
+});
+
+/* -------------------------- party ledger & payments ----------------------- */
+
+router.get(
+  "/:id/ledger",
+  authorizeAny("party:manage", "ledger:view", "party:view"),
+  async (req, res) => {
+    const query = z
+      .object({
+        type: z.enum(LEDGER_TYPES).optional(),
+        fromDate: z.string().optional(),
+        toDate: z.string().optional(),
+        page: z.coerce.number().int().min(1).default(1),
+        limit: z.coerce.number().int().min(1).max(200).default(50),
+      })
+      .parse(req.query);
+
+    const result = await getPartyLedger(req.auth!, req.storeId!, param(req.params.id), query);
+    res.json(result);
+  }
+);
+
+router.get(
+  "/:id/open-invoices",
+  authorizeAny("party:manage", "payment:create", "party:view"),
+  async (req, res) => {
+    const invoices = await listOpenInvoices(req.auth!, req.storeId!, param(req.params.id));
+    res.json({ invoices });
+  }
+);
+
+router.post(
+  "/:id/payments",
+  authorizeAny("party:manage", "payment:create"),
+  async (req, res) => {
+    const body = z
+      .object({
+        amount: z.coerce.number().positive("Payment amount must be greater than 0"),
+        method: z.enum(PARTY_PAYMENT_METHODS),
+        date: z.string().optional(),
+        invoiceId: z.string().optional(),
+        notes: z.string().trim().max(300).optional(),
+      })
+      .parse(req.body);
+
+    const result = await recordPartyPayment(req.auth!, req.storeId!, param(req.params.id), body);
+    res.status(201).json(result);
+  }
+);
+
+export default router;
+

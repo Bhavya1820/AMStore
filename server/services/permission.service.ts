@@ -43,6 +43,28 @@ export async function createDefaultRoles(tenantId: mongoose.Types.ObjectId) {
   return byName;
 }
 
+// Keeps every tenant's system roles in line with DEFAULT_ROLE_PERMISSIONS, so changing the
+// defaults applies to existing tenants too. Per-user grants/revokes are untouched.
+export async function syncSystemRoles(): Promise<void> {
+  const perms = await Permission.find({ isActive: true }).select("key");
+  const idByKey = new Map(perms.map((p) => [p.key, p._id]));
+
+  await Role.bulkWrite(
+    ROLE_NAMES.map((name) => ({
+      updateMany: {
+        filter: { name, isSystemRole: true },
+        update: {
+          $set: {
+            permissions: DEFAULT_ROLE_PERMISSIONS[name]
+              .map((key) => idByKey.get(key))
+              .filter((id): id is NonNullable<typeof id> => Boolean(id)),
+          },
+        },
+      },
+    }))
+  );
+}
+
 // Effective permissions = role defaults + user grants - user revocations
 export async function resolvePermissions(user: {
   isOwner: boolean;

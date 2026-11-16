@@ -11,6 +11,7 @@ import {
   signAccessToken,
   generateRefreshToken,
   hashToken,
+  verifyPasswordResetToken,
   verifyRegistrationToken,
   ACCESS_TOKEN_TTL_MINUTES,
   REFRESH_TOKEN_TTL_DAYS,
@@ -19,8 +20,8 @@ import { generateStoreCode } from "../utils/storeCode";
 import { AppError } from "../utils/AppError";
 import { Role as RoleName } from "../types/auth";
 
-const MAX_FAILED_LOGINS = 5;
-const LOCK_MINUTES = 15;
+const MAX_FAILED_LOGINS = 10;
+const LOCK_MINUTES = 1;
 
 // Used to burn the same CPU time when the user does not exist (prevents account enumeration by timing)
 const DUMMY_HASH = bcrypt.hashSync("dummy-password-for-timing", 10);
@@ -280,6 +281,27 @@ export async function changePassword(
   // Sign out every other device, then start a fresh session for this one
   await revokeAllSessions(user._id);
   return createSession(user, meta);
+}
+
+/* ----------------------------- forgot password ----------------------------- */
+
+export async function resetPasswordWithToken(
+  resetToken: string,
+  newPassword: string
+): Promise<void> {
+  const { userId } = verifyPasswordResetToken(resetToken);
+
+  const user = await User.findById(userId).select("+password");
+  if (!user) throw new AppError(404, "User not found");
+  if (!user.isActive) throw new AppError(403, "This account has been deactivated");
+
+  user.password = newPassword; // hashed by the pre("save") hook
+  user.mustChangePassword = false;
+  user.failedLoginCount = 0;
+  user.lockUntil = undefined;
+  await user.save();
+
+  await revokeAllSessions(user._id);
 }
 
 /* ---------------------------------- profile -------------------------------- */

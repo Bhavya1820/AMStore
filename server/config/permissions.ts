@@ -51,15 +51,15 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<RoleName, string[]> = {
     "sale_return:create",
     "cashsession:manage",
   ],
+  // Purchase staff can pick a party while creating a purchase invoice (party:view),
+  // but cannot create/edit/delete parties, see party ledgers or record standalone payments.
+  // Owners/admins can still grant those per user from the Users page.
   purchase: [
     "item:view",
     "category:view",
     "party:view",
-    "party:manage",
     "purchase:view",
     "purchase:create",
     "purchase_return:create",
-    "payment:view",
-    "payment:create",
   ],
 };

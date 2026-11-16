@@ -145,6 +145,7 @@ export function CreateUserModal({ me, stores, onClose, onDone }) {
 export function EditUserModal({ me, user, stores, onClose, onDone }) {
   const isAdminRole = user.role === 'admin'
   const [userName, setUserName] = useState(user.userName)
+  const [email, setEmail] = useState(user.email ?? '')
   const [storeIds, setStoreIds] = useState(user.storeIds)
   const [serverError, setServerError] = useState(null)
   const [error, setError] = useState('')
@@ -155,11 +156,14 @@ export function EditUserModal({ me, user, stores, onClose, onDone }) {
     e.preventDefault()
     setServerError(null)
     if (userName.trim().length < 2) return setError('Enter a name (min 2 characters)')
+    if (isAdminRole && !isEmail(email.trim())) return setError('A valid email is required for admins')
+    if (!isAdminRole && email.trim() && !isEmail(email.trim())) return setError('Enter a valid email')
     if (storeIds.length === 0) return setError('Select a store')
     setError('')
 
     const body = {}
     if (userName.trim() !== user.userName) body.userName = userName.trim()
+    if (email.trim().toLowerCase() !== (user.email ?? '')) body.email = email.trim().toLowerCase()
     if (canMove && [...storeIds].sort().join() !== [...user.storeIds].sort().join()) body.storeIds = storeIds
     if (Object.keys(body).length === 0) return onClose()
 
@@ -190,6 +194,15 @@ export function EditUserModal({ me, user, stores, onClose, onDone }) {
       <form id="edit-user-form" onSubmit={submit} noValidate>
         <ErrorAlert error={serverError} />
         <TextField id="eu-username" label="Name" value={userName} onChange={(e) => setUserName(e.target.value)} error={error && userName.trim().length < 2 ? error : ''} />
+        <TextField
+          id="eu-email"
+          label={isAdminRole ? 'Email' : 'Email (optional, used for OTP password recovery)'}
+          type="email"
+          icon={<IconMail size={18} />}
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          error={error && email !== undefined && error.includes('email') ? error : ''}
+        />
         {canMove && (
           <Field label={isAdminRole ? 'Facilities' : 'Store'} error={error && storeIds.length === 0 ? error : ''}>
             {isAdminRole ? (

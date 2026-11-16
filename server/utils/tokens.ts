@@ -1,6 +1,6 @@
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
-import { AccessTokenPayload, RegistrationTokenPayload } from "../types/auth";
+import { AccessTokenPayload, PasswordResetTokenPayload, RegistrationTokenPayload } from "../types/auth";
 import { AppError } from "./AppError";
 
 export const ACCESS_TOKEN_TTL_MINUTES = 15;
@@ -37,6 +37,36 @@ export const verifyRegistrationToken = (token: string): RegistrationTokenPayload
     return { email: decoded.email as string, purpose: "registration" };
   } catch {
     throw new AppError(401, "Registration session expired. Please verify your email again.", "REGISTRATION_TOKEN_INVALID");
+  }
+};
+
+export const signPasswordResetToken = (userId: string, email: string): string => {
+  const payload: PasswordResetTokenPayload = { userId, email, purpose: "forgotPassword" };
+  return jwt.sign(payload, secret("REGISTRATION_TOKEN_SECRET"), { expiresIn: "15m", algorithm: "HS256" });
+};
+
+export const verifyPasswordResetToken = (token: string): PasswordResetTokenPayload => {
+  try {
+    const decoded = jwt.verify(token, secret("REGISTRATION_TOKEN_SECRET"), { algorithms: ["HS256"] });
+    if (
+      typeof decoded === "string" ||
+      decoded.purpose !== "forgotPassword" ||
+      !decoded.userId ||
+      !decoded.email
+    ) {
+      throw new Error("bad purpose");
+    }
+    return {
+      userId: decoded.userId as string,
+      email: decoded.email as string,
+      purpose: "forgotPassword",
+    };
+  } catch {
+    throw new AppError(
+      401,
+      "Password reset session expired. Please verify your OTP again.",
+      "RESET_TOKEN_INVALID"
+    );
   }
 };
 

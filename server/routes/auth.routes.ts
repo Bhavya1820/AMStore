@@ -7,11 +7,17 @@ import {
   refreshSession,
   logout,
   changePassword,
+  resetPasswordWithToken,
   getProfile,
   Session,
   SessionMeta,
 } from "../services/auth.service";
-import { requestRegistrationOtp, verifyRegistrationOtp } from "../services/otp.service";
+import {
+  requestRegistrationOtp,
+  verifyRegistrationOtp,
+  requestForgotPasswordOtp,
+  verifyForgotPasswordOtp,
+} from "../services/otp.service";
 import { toUserDto } from "../services/user.service";
 import { authenticateAllowPasswordChange } from "../middleware/authMiddleware";
 import { emailSchema, passwordSchema, nameSchema } from "../utils/validation";
@@ -144,6 +150,53 @@ router.post("/change-password", authenticateAllowPasswordChange, loginLimiter, a
     .parse(req.body);
   const session = await changePassword(req.auth!.userId, currentPassword, newPassword, meta(req));
   res.json({ message: "Password changed", ...sendSession(res, session) });
+});
+
+/* ----------------------------- forgot password ---------------------------- */
+
+const forgotLookupSchema = z.union([
+  z.object({ email: emailSchema }),
+  z.object({
+    storeCode: z.string().trim().min(1, "Store code is required").max(30),
+    userName: z.string().trim().min(1, "Username is required").max(100),
+  }),
+]);
+
+const forgotVerifySchema = z.union([
+  z.object({ email: emailSchema, otp: z.string().regex(/^\d{6}$/, "Enter the 6-digit OTP") }),
+  z.object({
+    storeCode: z.string().trim().min(1).max(30),
+    userName: z.string().trim().min(1).max(100),
+    otp: z.string().regex(/^\d{6}$/, "Enter the 6-digit OTP"),
+  }),
+]);
+
+router.post("/forgot-password/send-otp", otpLimiter, async (req, res) => {
+  const lookup = forgotLookupSchema.parse(req.body);
+  const { maskedEmail } = await requestForgotPasswordOtp(lookup);
+  res.json({
+    message: `OTP sent to ${maskedEmail}`,
+    maskedEmail,
+  });
+});
+
+router.post("/forgot-password/verify-otp", otpLimiter, async (req, res) => {
+  const body = forgotVerifySchema.parse(req.body);
+  const lookup = "email" in body ? { email: body.email } : { storeCode: body.storeCode, userName: body.userName };
+  const resetToken = await verifyForgotPasswordOtp(lookup, body.otp);
+  res.json({ resetToken });
+});
+
+router.post("/forgot-password/reset", otpLimiter, async (req, res) => {
+  const { resetToken, newPassword } = z
+    .object({
+      resetToken: z.string().min(1, "Reset token is required"),
+      newPassword: passwordSchema,
+    })
+    .parse(req.body);
+
+  await resetPasswordWithToken(resetToken, newPassword);
+  res.json({ message: "Password reset successfully. You can now sign in with your new password." });
 });
 
 export default router;

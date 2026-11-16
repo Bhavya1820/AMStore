@@ -191,6 +191,7 @@ export async function getUser(ctx: AuthContext, id: string) {
 export interface UpdateUserInput {
   isActive?: boolean;
   userName?: string;
+  email?: string;
   storeIds?: string[];
 }
 
@@ -200,6 +201,12 @@ export async function updateUser(ctx: AuthContext, id: string, input: UpdateUser
   assertMutable(ctx, user);
 
   if (input.userName !== undefined) user.userName = input.userName;
+  if (input.email !== undefined) {
+    if (role === "admin" && !input.email.trim()) {
+      throw new AppError(400, "A facility admin must have an email address");
+    }
+    user.email = input.email.trim() ? input.email.trim().toLowerCase() : undefined;
+  }
 
   if (input.storeIds !== undefined) {
     if (ctx.role !== "owner") throw new AppError(403, "Only the owner can move users between stores", "FORBIDDEN");

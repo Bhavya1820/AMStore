@@ -10,8 +10,9 @@ import authRoutes from "./routes/auth.routes"
 import userRoutes from "./routes/user.routes"
 import storeRoutes from "./routes/store.routes"
 import inventoryRoutes from "./routes/inventory.routes"
+import partyRoutes from "./routes/party.routes"
 import { errorHandler, notFoundHandler } from "./middleware/errorHandler"
-import { seedPermissions } from "./services/permission.service"
+import { seedPermissions, syncSystemRoles } from "./services/permission.service"
 
 const app = express();
 
@@ -34,6 +35,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/stores", storeRoutes);
 app.use("/api/inventory", inventoryRoutes);
+app.use("/api/parties", partyRoutes);
 
 app.use(notFoundHandler);
 app.use(errorHandler);
@@ -50,6 +52,7 @@ async function start() {
   console.log("MongoDB connected");
 
   await seedPermissions();
+  await syncSystemRoles();
 
   //App listening
   app.listen(process.env.PORT, () => {

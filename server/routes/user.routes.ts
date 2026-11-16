@@ -70,6 +70,7 @@ router.patch("/:id", authorize("user:manage"), async (req, res) => {
     .object({
       isActive: z.boolean().optional(),
       userName: nameSchema.optional(),
+      email: z.union([emailSchema, z.literal("")]).optional(),
       storeIds: z.array(objectId).max(100).optional(),
     })
     .refine((b) => Object.keys(b).length > 0, "Nothing to update")

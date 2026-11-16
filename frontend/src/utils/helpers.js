@@ -81,6 +81,7 @@ export const MEASURING_UNIT_SHORT = {
 }
 
 export const LEDGER_TYPE_LABELS = {
+  opening_balance: 'Opening Balance',
   add_new_item: 'Opening Stock',
   stock_adjustment: 'Stock Adjustment',
   purchase_item: 'Purchase In',

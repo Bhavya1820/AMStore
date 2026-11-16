@@ -1,10 +1,15 @@
 export const MEASURING_UNITS = ["gram", "millilitre", "kilogram", "litre", "piece"] as const;
 export type MeasuringUnit = typeof MEASURING_UNITS[number];
 
-export const PAYMENT_METHODS = ["cash", "upi", "card", "unpaid", "personalupi"] as const;
+export const PAYMENT_METHODS = ["cash", "upi", "card", "bank", "unpaid", "personalupi"] as const;
 export type PaymentMethod = typeof PAYMENT_METHODS[number];
 
+// Methods that can be used when paying a vendor/party
+export const PARTY_PAYMENT_METHODS = ["cash", "upi", "card", "bank"] as const;
+export type PartyPaymentMethod = typeof PARTY_PAYMENT_METHODS[number];
+
 export const LEDGER_TYPES = [
+  "opening_balance",
   "sale_item",
   "sale_invoice",
   "purchase_item",

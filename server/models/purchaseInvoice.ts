@@ -11,12 +11,16 @@ interface IPurchase {
   invoiceDate: Date;
   items: IItem[];
   taxableAmount: number;
+  discountAmount: number;
   gstAmount: number;
   totalAmount: number;
   amountPaid: number;
   payments: IPayment[];
   balanceAmount: number;
+  notes?: string;
   cancelled: boolean;
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 const purchaseInvoice = new mongoose.Schema<IPurchase>({
@@ -28,17 +32,20 @@ const purchaseInvoice = new mongoose.Schema<IPurchase>({
   invoiceDate: {type: Date, required: true},
   items: [itemSchema],
   taxableAmount: {type: Number, default: 0},
+  discountAmount: {type: Number, default: 0},
   gstAmount: {type: Number, default: 0},
   totalAmount: {type: Number, default: 0},
   amountPaid: {type: Number, default: 0},
   payments: [paymentSchema],
   balanceAmount: {type: Number, default: 0},
+  notes: {type: String, trim: true},
   cancelled: {type: Boolean, default: false}
 }, {timestamps: true});
 
 // Same party may reuse a vendor's invoice number across stores, but not within one store
 purchaseInvoice.index({storeId: 1, party: 1, invoiceNumber: 1}, {unique: true});
 purchaseInvoice.index({storeId: 1, invoiceDate: -1});
+purchaseInvoice.index({storeId: 1, party: 1, invoiceDate: -1});
 
 const Purchase = mongoose.model<IPurchase>("Purchase", purchaseInvoice);
 export default Purchase;
