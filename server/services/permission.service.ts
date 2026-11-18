@@ -74,12 +74,15 @@ export async function resolvePermissions(user: {
 }): Promise<Set<string>> {
   if (user.isOwner) return new Set(ALL_PERMISSION_KEYS);
 
-  const role = await Role.findById(user.roleId).select("permissions");
+  const role = await Role.findById(user.roleId).select("name permissions");
   const perms = role
     ? await Permission.find({ _id: { $in: role.permissions }, isActive: true }).select("key")
     : [];
 
-  const effective = new Set(perms.map((p) => p.key));
+  const effective = new Set<string>(
+    role ? DEFAULT_ROLE_PERMISSIONS[role.name] ?? [] : []
+  );
+  for (const p of perms) effective.add(p.key);
   for (const key of user.grantedPermissions) {
     if (ALL_PERMISSION_KEYS.includes(key)) effective.add(key);
   }

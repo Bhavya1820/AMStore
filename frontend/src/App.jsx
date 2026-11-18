@@ -11,6 +11,8 @@ import Users from './pages/Users'
 import Stores from './pages/Stores'
 import Inventory from './pages/Inventory'
 import Parties from './pages/Parties'
+import Purchases from './pages/Purchases'
+import CreatePurchase from './pages/CreatePurchase'
 import ChangePassword from './pages/ChangePassword'
 
 export default function App() {
@@ -41,6 +43,22 @@ export default function App() {
                   element={
                     <RequirePermission permission="party:manage">
                       <Parties />
+                    </RequirePermission>
+                  }
+                />
+                <Route
+                  path="/purchases"
+                  element={
+                    <RequirePermission permission="purchase:view">
+                      <Purchases />
+                    </RequirePermission>
+                  }
+                />
+                <Route
+                  path="/purchases/new"
+                  element={
+                    <RequirePermission permission="purchase:create">
+                      <CreatePurchase />
                     </RequirePermission>
                   }
                 />

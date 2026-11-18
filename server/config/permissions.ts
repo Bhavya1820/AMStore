@@ -23,6 +23,7 @@ export const PERMISSION_CATALOG: PermissionDef[] = [
   { key: "sale_return:create", description: "Create sales returns" },
   { key: "purchase:view", description: "View purchase invoices" },
   { key: "purchase:create", description: "Create purchase invoices" },
+  { key: "purchase:edit_pricing", description: "Edit purchase price, GST %, and Include GST on purchase invoices (also updates item in inventory)" },
   { key: "purchase:cancel", description: "Cancel purchase invoices" },
   { key: "purchase_return:create", description: "Create purchase returns" },
   { key: "payment:view", description: "View payments" },

@@ -11,6 +11,7 @@ import userRoutes from "./routes/user.routes"
 import storeRoutes from "./routes/store.routes"
 import inventoryRoutes from "./routes/inventory.routes"
 import partyRoutes from "./routes/party.routes"
+import purchaseRoutes from "./routes/purchase.routes"
 import { errorHandler, notFoundHandler } from "./middleware/errorHandler"
 import { seedPermissions, syncSystemRoles } from "./services/permission.service"
 
@@ -36,6 +37,7 @@ app.use("/api/users", userRoutes);
 app.use("/api/stores", storeRoutes);
 app.use("/api/inventory", inventoryRoutes);
 app.use("/api/parties", partyRoutes);
+app.use("/api/purchases", purchaseRoutes);
 
 app.use(notFoundHandler);
 app.use(errorHandler);
