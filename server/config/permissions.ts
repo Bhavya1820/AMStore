@@ -25,7 +25,8 @@ export const PERMISSION_CATALOG: PermissionDef[] = [
   { key: "purchase:create", description: "Create purchase invoices" },
   { key: "purchase:edit_pricing", description: "Edit purchase price, GST %, and Include GST on purchase invoices (also updates item in inventory)" },
   { key: "purchase:cancel", description: "Cancel purchase invoices" },
-  { key: "purchase_return:create", description: "Create purchase returns" },
+  { key: "purchase_return:view", description: "View purchase returns" },
+  { key: "purchase_return:create", description: "Create and manage purchase returns (reverses stock and party balance)" },
   { key: "payment:view", description: "View payments" },
   { key: "payment:create", description: "Record payments in/out" },
   { key: "ledger:view", description: "View ledgers" },
@@ -61,6 +62,5 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<RoleName, string[]> = {
     "party:view",
     "purchase:view",
     "purchase:create",
-    "purchase_return:create",
   ],
 };

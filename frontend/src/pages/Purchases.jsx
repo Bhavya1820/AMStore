@@ -822,6 +822,16 @@ export default function Purchases() {
             </span>
           ) : null}
 
+          {(has('purchase_return:view') || has('purchase_return:create')) && (
+            <Button
+              variant="ghost"
+              disabled={!selectedStoreId}
+              onClick={() => navigate(`/purchase-returns?storeId=${selectedStoreId}`)}
+            >
+              <IconRefresh size={17} /> Purchase Returns
+            </Button>
+          )}
+
           {canCreate && (
             <Button
               id="go-create-purchase-btn"

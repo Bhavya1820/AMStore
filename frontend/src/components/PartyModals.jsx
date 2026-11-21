@@ -746,7 +746,9 @@ export function PartyLedgerModal({
                       className={`badge ${
                         entry.type === 'purchase_invoice'
                           ? 'owner'
-                          : entry.type === 'payment_out'
+                          : entry.type === 'purchase_return'
+                          ? 'purchase'
+                          : entry.type === 'payment_out' || entry.type === 'payment_in'
                           ? 'on'
                           : ''
                       }`}
@@ -769,19 +771,25 @@ export function PartyLedgerModal({
                   </td>
 
                   <td>
-                    {inv && entry.type === 'purchase_invoice' ? (
+                    {inv && (entry.type === 'purchase_invoice' || entry.type === 'purchase_return') ? (
                       <div style={{ display: 'grid', gap: 8 }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
-                          <strong>Invoice #{inv.invoiceNumber}</strong>
+                          <strong>
+                            {entry.type === 'purchase_return' ? 'Purchase Return' : 'Invoice'} #{inv.invoiceNumber}
+                          </strong>
                           <span style={{ fontSize: '0.78rem', color: 'var(--ink-500)' }}>
                             Taxable: {formatCurrency(inv.taxableAmount)} · GST: {formatCurrency(inv.gstAmount)} ·{' '}
-                            {inv.balanceAmount > 0.004
+                            {entry.type === 'purchase_return'
+                              ? inv.amountPaid > 0.004
+                                ? `Refunded: ${formatCurrency(inv.amountPaid)}`
+                                : 'Adjusted on Balance'
+                              : inv.balanceAmount > 0.004
                               ? `Due: ${formatCurrency(inv.balanceAmount)}`
                               : 'Fully Paid'}
                           </span>
                         </div>
 
-                        {/* Itemized breakdown showing what was purchased, at what price, and resulting stock */}
+                        {/* Itemized breakdown showing what was purchased or returned, at what price, and resulting stock */}
                         {inv.items?.length > 0 && (
                           <div
                             style={{
@@ -806,14 +814,15 @@ export function PartyLedgerModal({
                                 textTransform: 'uppercase',
                               }}
                             >
-                              <span>Item Purchased</span>
+                              <span>{entry.type === 'purchase_return' ? 'Item Returned' : 'Item Purchased'}</span>
                               <span>Qty</span>
-                              <span>Buy Price</span>
+                              <span>{entry.type === 'purchase_return' ? 'Return Rate' : 'Buy Price'}</span>
                               <span>Total (w/ GST)</span>
                               <span>Stock After</span>
                             </div>
                             {inv.items.map((it, idx) => {
                               const u = MEASURING_UNIT_SHORT[it.measuringUnit] || it.measuringUnit
+                              const isReturn = entry.type === 'purchase_return'
                               return (
                                 <div
                                   key={idx}
@@ -837,8 +846,8 @@ export function PartyLedgerModal({
                                       </small>
                                     )}
                                   </div>
-                                  <div style={{ fontWeight: 600, color: 'var(--green-500)' }}>
-                                    +{it.quantity} {u}
+                                  <div style={{ fontWeight: 600, color: isReturn ? 'var(--red-500)' : 'var(--green-500)' }}>
+                                    {isReturn ? '−' : '+'}{it.quantity} {u}
                                   </div>
                                   <div>
                                     {formatCurrency(it.rate)}/{u}
@@ -871,7 +880,7 @@ export function PartyLedgerModal({
                       <div style={{ fontSize: '0.88rem' }}>
                         {inv && (
                           <div style={{ fontWeight: 600, marginBottom: 2 }}>
-                            Against Invoice #{inv.invoiceNumber}
+                            Against #{inv.invoiceNumber}
                           </div>
                         )}
                         <div>{entry.remarks || '—'}</div>

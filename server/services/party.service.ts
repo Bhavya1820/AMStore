@@ -2,6 +2,7 @@ import mongoose, { ClientSession } from "mongoose";
 import Party from "../models/Party";
 import Ledger from "../models/Ledger";
 import Purchase from "../models/purchaseInvoice";
+import PurchaseReturn from "../models/purchaseReturn";
 import Payments from "../models/Payment";
 import { LedgerType, PartyPaymentMethod } from "../models/Common";
 import { AuthContext } from "../types/auth";
@@ -575,12 +576,16 @@ export async function getPartyLedger(ctx: AuthContext, storeId: string, partyId:
     ]),
   ]);
 
-  // Attach the purchased items (qty, rate, GST, total, stock after purchase) to invoice entries
+  // Attach the purchased / returned items (qty, rate, GST, total, stock after transaction) to invoice & return entries
   const invoiceIds = [...new Set(entries.filter((e) => e.invoiceId).map((e) => e.invoiceId!.toString()))];
-  const invoices = invoiceIds.length
-    ? await Purchase.find({ _id: { $in: invoiceIds }, tenantId: ctx.tenantId, storeId })
-    : [];
+  const [invoices, purchaseReturns] = invoiceIds.length
+    ? await Promise.all([
+        Purchase.find({ _id: { $in: invoiceIds }, tenantId: ctx.tenantId, storeId }),
+        PurchaseReturn.find({ _id: { $in: invoiceIds }, tenantId: ctx.tenantId, storeId }),
+      ])
+    : [[], []];
   const invoiceById = new Map(invoices.map((inv) => [inv._id.toString(), inv]));
+  const returnById = new Map(purchaseReturns.map((ret) => [ret._id.toString(), ret]));
 
   const t = totals[0] ?? { totalCredit: 0, totalDebit: 0, totalPurchases: 0, totalPaid: 0, purchaseCount: 0 };
 
@@ -595,6 +600,7 @@ export async function getPartyLedger(ctx: AuthContext, storeId: string, partyId:
     },
     entries: entries.map((e) => {
       const inv = e.invoiceId ? invoiceById.get(e.invoiceId.toString()) : undefined;
+      const ret = e.invoiceId ? returnById.get(e.invoiceId.toString()) : undefined;
       const user = e.userId as unknown as { _id: mongoose.Types.ObjectId; userName: string } | null;
       return {
         id: e._id.toString(),
@@ -621,6 +627,36 @@ export async function getPartyLedger(ctx: AuthContext, storeId: string, partyId:
               items:
                 e.type === "purchase_invoice"
                   ? inv.items.map((it) => ({
+                      itemId: it.item.toString(),
+                      name: it.name,
+                      barcode: it.barcode ?? null,
+                      quantity: it.quantity,
+                      measuringUnit: it.measuringUnit,
+                      rate: it.rate ?? 0,
+                      discount: it.discount ?? 0,
+                      gst: it.gst,
+                      priceIncludesTax: it.priceIncludesTax ?? false,
+                      taxableAmount: it.taxableAmount ?? 0,
+                      gstAmount: it.gstAmount ?? 0,
+                      totalAmount: it.totalAmount,
+                      closingStock: it.closingStock ?? null,
+                    }))
+                  : [],
+            }
+          : ret
+          ? {
+              id: ret._id.toString(),
+              invoiceNumber: ret.purchaseReturnNumber,
+              invoiceDate: ret.purchaseReturnDate,
+              taxableAmount: ret.taxableAmount,
+              discountAmount: ret.discountAmount ?? 0,
+              gstAmount: ret.gstAmount ?? money((ret.sgst ?? 0) + (ret.cgst ?? 0)),
+              totalAmount: ret.totalAmount,
+              amountPaid: ret.amountReceived ?? 0,
+              balanceAmount: ret.balanceAmount ?? 0,
+              items:
+                e.type === "purchase_return"
+                  ? ret.items.map((it) => ({
                       itemId: it.item.toString(),
                       name: it.name,
                       barcode: it.barcode ?? null,

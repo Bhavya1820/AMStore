@@ -30,7 +30,8 @@ export function GuestRoute() {
   return <Outlet />
 }
 
-export function RequirePermission({ permission, children }) {
+export function RequirePermission({ permission, anyOf, children }) {
   const { has } = useAuth()
-  return has(permission) ? children : <Navigate to="/dashboard" replace />
+  const allowed = anyOf ? anyOf.some((p) => has(p)) : has(permission)
+  return allowed ? children : <Navigate to="/dashboard" replace />
 }

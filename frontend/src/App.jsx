@@ -13,6 +13,8 @@ import Inventory from './pages/Inventory'
 import Parties from './pages/Parties'
 import Purchases from './pages/Purchases'
 import CreatePurchase from './pages/CreatePurchase'
+import PurchaseReturns from './pages/PurchaseReturns'
+import CreatePurchaseReturn from './pages/CreatePurchaseReturn'
 import ChangePassword from './pages/ChangePassword'
 
 export default function App() {
@@ -59,6 +61,22 @@ export default function App() {
                   element={
                     <RequirePermission permission="purchase:create">
                       <CreatePurchase />
+                    </RequirePermission>
+                  }
+                />
+                <Route
+                  path="/purchase-returns"
+                  element={
+                    <RequirePermission anyOf={['purchase_return:view', 'purchase_return:create']}>
+                      <PurchaseReturns />
+                    </RequirePermission>
+                  }
+                />
+                <Route
+                  path="/purchase-returns/new"
+                  element={
+                    <RequirePermission permission="purchase_return:create">
+                      <CreatePurchaseReturn />
                     </RequirePermission>
                   }
                 />

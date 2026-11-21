@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { ROLE_LABELS } from '../utils/helpers'
-import { BrandMark, IconBox, IconDashboard, IconKey, IconLogout, IconMenu, IconReceipt, IconStore, IconTruck, IconUsers } from './Icons'
+import { BrandMark, IconBox, IconDashboard, IconKey, IconLogout, IconMenu, IconReceipt, IconRefresh, IconStore, IconTruck, IconUsers } from './Icons'
 
 const TITLES = {
   '/dashboard': 'Dashboard',
@@ -10,6 +10,8 @@ const TITLES = {
   '/parties': 'Parties / Vendors',
   '/purchases': 'Purchase Invoices',
   '/purchases/new': 'Create Purchase Invoice',
+  '/purchase-returns': 'Purchase Returns',
+  '/purchase-returns/new': 'Create Purchase Return',
   '/facilities': 'Facilities',
   '/users': 'Users',
   '/change-password': 'Change password',
@@ -50,6 +52,7 @@ export default function Layout() {
     { to: '/inventory', label: 'Inventory', icon: <IconBox />, show: canSeeInventory },
     { to: '/parties', label: 'Parties / Vendors', icon: <IconTruck />, show: has('party:manage') },
     { to: '/purchases', label: 'Purchase', icon: <IconReceipt />, show: has('purchase:view') || has('purchase:create') },
+    { to: '/purchase-returns', label: 'Purchase Return', icon: <IconRefresh />, show: has('purchase_return:view') || has('purchase_return:create') },
     { to: '/facilities', label: 'Facilities', icon: <IconStore />, show: has('store:manage') },
     { to: '/users', label: 'Users', icon: <IconUsers />, show: has('user:view') },
   ].filter((n) => n.show)
